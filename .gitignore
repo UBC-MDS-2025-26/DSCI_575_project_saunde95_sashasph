@@ -1,0 +1,5 @@
+# Environment variables
+.env
+
+# Ignore raw data files
+data/raw/*
