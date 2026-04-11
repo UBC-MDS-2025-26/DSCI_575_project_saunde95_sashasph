@@ -20,7 +20,7 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 import faiss
 
-def load_documents(path="../data/processed/processed_data_sample.parquet"):
+def load_documents(path="data/processed/processed_data_sample.parquet"):
     """
     Load dataset and create combined text for semantic search.
 
@@ -125,7 +125,7 @@ def semantic_search(query, model, index, df, top_k=5):
         - average_rating : float or None
         - rating_number : int or None
         - price : str
-        - distance : float (lower = more similar)
+        - score : float (higher = more similar)
     """
     top_k = min(top_k, len(df))
 
@@ -137,6 +137,8 @@ def semantic_search(query, model, index, df, top_k=5):
     results = []
     for rank, doc_idx in enumerate(indices[0]):
         row = df.iloc[doc_idx]
+        distance = float(distances[0][rank])
+        score = 1 / (1 + distance)
 
         results.append({
             "rank": rank + 1,
@@ -146,12 +148,12 @@ def semantic_search(query, model, index, df, top_k=5):
             "average_rating": float(row["average_rating"]) if pd.notna(row["average_rating"]) else None,
             "rating_number": int(row["rating_number"]) if pd.notna(row["rating_number"]) else None,
             "price": str(row["price"]) if pd.notna(row["price"]) else "N/A",
-            "distance": float(distances[0][rank])
+            "score": float(score)
         })
 
     return results
-
-def save_faiss_index(index, path="../data/processed/faiss_index.index"):
+    
+def save_faiss_index(index, path="data/processed/faiss_index.index"):
     """
     Save a FAISS index to disk.
 
@@ -165,7 +167,7 @@ def save_faiss_index(index, path="../data/processed/faiss_index.index"):
     faiss.write_index(index, path)
 
 
-def load_faiss_index(path="../data/processed/faiss_index.index"):
+def load_faiss_index(path="data/processed/faiss_index.index"):
     """
     Load a FAISS index from disk.
 
