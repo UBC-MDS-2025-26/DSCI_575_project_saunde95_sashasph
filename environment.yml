@@ -1,4 +1,4 @@
-name: test2
+name: retrieval-app
 channels:
   - conda-forge
 dependencies:
