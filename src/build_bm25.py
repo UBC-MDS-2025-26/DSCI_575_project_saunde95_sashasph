@@ -50,20 +50,7 @@ def main():
     else:
         print("Loaded BM25 retriever.")
 
-
-    if len(sys.argv) > 1:
-        query = sys.argv[1]
-    else:
-        query = input("Enter search query: ")
-
-    print(f"\nSearching for: {query}\n")
-
-    results = bm25_search(retriever, query, top_k=5)
-
-    for r in results:
-        print(r)
-        print("-" * 50)
-
+    print("BM25 setup complete!")
 
 if __name__ == "__main__":
     main()
