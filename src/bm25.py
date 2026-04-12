@@ -226,10 +226,10 @@ def bm25_search(retriever, query, top_k=5):
             "rank": rank,
             "product_title": m.get("product_title"),
             "review_text": m.get("review_text"),
-            "rating": m.get("rating"),
-            "average_rating": m.get("average_rating"),
-            "rating_number": m.get("rating_number"),
-            "price": m.get("price")
+            "rating": int(m.get("rating")) if pd.notna(m.get("rating")) else None,
+            "average_rating": float(m.get("average_rating")) if pd.notna(m.get("average_rating")) else None,
+            "rating_number": int(m.get("rating_number")) if pd.notna(m.get("rating_number")) else None,
+            "price": str(m.get("price")) if pd.notna(m.get("price")) else "N/A"
         })
 
     return results
