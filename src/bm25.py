@@ -214,8 +214,8 @@ def bm25_search(retriever, query, top_k=5):
         - rating_number : int or None
         - price : str
     """
-
-    docs = retriever.invoke(query)[:top_k]
+    processed_query = " ".join(simple_tokenize(query)) 
+    docs = retriever.invoke(processed_query)[:top_k]
 
     results = []
 
