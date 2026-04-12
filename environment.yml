@@ -14,3 +14,5 @@ dependencies:
       - rank-bm25
       - sentence-transformers
       - faiss-cpu
+      - langchain
+      - langchain-community
