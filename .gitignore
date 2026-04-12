@@ -1,5 +1,14 @@
 # Environment variables
 .env
 
-# Ignore raw data files
+# Raw data (large files, not tracked)
 data/raw/*
+
+# Generated indices (FAISS, etc.)
+data/processed/*.index
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Mac system files
+.DS_Store
