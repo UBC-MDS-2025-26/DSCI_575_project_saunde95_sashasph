@@ -134,7 +134,7 @@ Build BM25 Retriever:
 ```bash
 python -m src.build_bm25
 ```
-Note: You may be prompted to enter a search query in the terminal. This is only for testing purposes and does not affect the build process. You can enter any text or press enter to continue.
+
 This will: 
 - create tokenized documents
 - build the BM25 retriever
