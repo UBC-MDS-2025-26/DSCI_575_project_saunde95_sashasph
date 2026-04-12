@@ -163,7 +163,7 @@ def semantic_search(query, model, index, df, top_k=5):
             "rating": int(row["rating"]) if pd.notna(row["rating"]) else None,
             "average_rating": float(row["average_rating"]) if pd.notna(row["average_rating"]) else None,
             "rating_number": int(row["rating_number"]) if pd.notna(row["rating_number"]) else None,
-            "price": str(row["price"]) if pd.notna(row["price"]) else "nan",
+            "price": str(row["price"]) if pd.notna(row["price"]) else "N/A",
             "score": round(float(score), 3)
             })
 
