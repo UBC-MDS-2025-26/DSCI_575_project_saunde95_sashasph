@@ -19,6 +19,7 @@ import pandas as pd
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import faiss
+import re
 
 def load_documents(path="data/processed/processed_data_sample.parquet"):
     """
@@ -97,6 +98,21 @@ def build_faiss_index(embeddings):
     return index
 
 
+def clean_text(value):
+    """
+    Clean text for display by removing simple HTML break tags and
+    normalizing whitespace.
+    """
+    if pd.isna(value):
+        return ""
+
+    text = str(value)
+    text = re.sub(r"<br\s*/?>", " ", text, flags=re.IGNORECASE)
+    text = text.replace("\xa0", " ")
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
 def semantic_search(query, model, index, df, top_k=5):
     """
     Perform semantic search using FAISS and return structured results.
@@ -120,12 +136,12 @@ def semantic_search(query, model, index, df, top_k=5):
         Ranked search results. Each result contains:
         - rank : int
         - product_title : str
-        - review_text : str
+        - review_text : str (cleaned for display; HTML tags removed)
         - rating : int or None
         - average_rating : float or None
         - rating_number : int or None
         - price : str
-        - score : float (higher = more similar)
+        - score : float (normalized similarity score, higher = more similar)
     """
     top_k = min(top_k, len(df))
 
@@ -142,14 +158,14 @@ def semantic_search(query, model, index, df, top_k=5):
 
         results.append({
             "rank": rank + 1,
-            "product_title": row["product_title"],
-            "review_text": row["text"],
+            "product_title": clean_text(row["product_title"]),
+            "review_text": clean_text(row["text"]),
             "rating": int(row["rating"]) if pd.notna(row["rating"]) else None,
             "average_rating": float(row["average_rating"]) if pd.notna(row["average_rating"]) else None,
             "rating_number": int(row["rating_number"]) if pd.notna(row["rating_number"]) else None,
-            "price": str(row["price"]) if pd.notna(row["price"]) else "N/A",
-            "score": float(score)
-        })
+            "price": str(row["price"]) if pd.notna(row["price"]) else "nan",
+            "score": round(float(score), 3)
+            })
 
     return results
     
