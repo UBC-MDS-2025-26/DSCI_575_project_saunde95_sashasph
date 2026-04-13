@@ -16,3 +16,4 @@ dependencies:
       - faiss-cpu
       - langchain
       - langchain-community
+      - shiny
