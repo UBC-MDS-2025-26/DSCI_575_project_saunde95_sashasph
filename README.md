@@ -26,7 +26,7 @@ These two approaches allow us to compare traditional keyword-based retrieval wit
 
 ## Dataset
 
-We use a subset of the Amazon Reviews 2023 dataset, focusing on the Patio, Lawn & Garden category.
+We use a subset of the Amazon Reviews 2023 dataset, specifically the Patio, Lawn & Garden category.
 
 The dataset consists of two sources:
 
@@ -57,9 +57,19 @@ For both BM25 and semantic search, we construct a combined text field by concate
 - description  
 - categories  
 
+In addition to this combined text used for retrieval, the following metadata fields are retained to support result display in the web application:
+
+- `product_title`  
+- `review_title`  
+- `review_text`  
+- `rating`  
+- `average_rating`  
+- `rating_number`  
+- `price`  
+
 Basic preprocessing includes:
 - handling missing values (e.g., price and sparse metadata fields)  
-- converting fields to strings  
+- ensuring all text fields are consistently formatted as strings  
 - converting list-based fields (features, description, categories) into plain text  
 - concatenating text fields into a single document per row  
 
@@ -74,7 +84,7 @@ Additional preprocessing is applied depending on the retrieval method:
 
 Due to the large size of the fully merged dataset (~14GB), we use a subset of 100,000 rows for this project.
 
-This subset was created by randomly sampling from the fully merged dataset after combining the reviews and metadata tables. While this approach does not perfectly preserve all underlying distributions, it is expected to retain a representative mix of products, reviews, and categories without introducing systematic bias.
+This subset was created by randomly sampling from the fully merged dataset after combining the reviews and metadata tables. While this approach does not guarantee preservation of all underlying distributions, it is expected to retain a representative mix of products, reviews, and categories without introducing systematic bias.
 
 This design choice allows the project to:
 - remain within GitHub file size limits
@@ -97,7 +107,8 @@ The processed dataset is stored as a parquet file and included in the repository
 ### Semantic Search
 
 - Uses `sentence-transformers/all-MiniLM-L6-v2` to encode text into dense vector embeddings  
-- FAISS is used to retrieve the most similar documents by comparing query and document embeddings  
+- FAISS is used to build an index for efficient similarity search 
+- Queries are encoded and used to retrieve the most similar documents from the FAISS index
 - Retrieval is based on embedding distance (closer = more similar)  
 
 For interpretability, distances are converted into a similarity-style score:
@@ -117,7 +128,6 @@ so that higher scores correspond to closer matches.
 ```bash
 git clone https://github.com/UBC-MDS/DSCI_575_project_saunde95_sashasph.git
 ```
-
 If you have SSH configured, you may use the SSH URL instead of HTTPS.
 
 ### 2. Create and Activate Environment
