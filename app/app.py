@@ -20,7 +20,7 @@ from src.bm25 import (
 DATA_PATH = "data/processed/processed_data_sample.parquet"
 INDEX_PATH = "data/processed/faiss_index.index"
 DOCS_PATH = "data/processed/bm25_docs.pkl"
-BM25_PATH = "data/processed/bm25_index.pkl"
+BM25_PATH = "data/processed/bm25_retriever.pkl"
 
 df, _ = load_semantic_docs(DATA_PATH)
 index = load_faiss_index(INDEX_PATH)
@@ -57,9 +57,9 @@ SUBTITLE_STYLE = (
 )
 
 app_ui = ui.page_fluid(
-    ui.tags.div("Smart Amazon Product Query Assistant", style = TITLE_STYLE),
+    ui.tags.div("Amazon Patio, Lawn and Garden Product Search", style = TITLE_STYLE),
     ui.tags.div(
-        "Search Amazon product reviews using BM25 or semantic search.",
+        "Explore product reviews using keyword (BM25) or semantic search",
         style = SUBTITLE_STYLE   
     ),
     ui.layout_sidebar(

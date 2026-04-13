@@ -1,4 +1,4 @@
-# Smart Amazon Product Query Assistant
+# Amazon Patio, Lawn and Garden Product Search
 
 Team Members: Sasha S, Claire Saunders 
 
