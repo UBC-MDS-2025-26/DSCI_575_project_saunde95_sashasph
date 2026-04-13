@@ -26,25 +26,19 @@ These two approaches allow us to compare traditional keyword-based retrieval wit
 
 ## Dataset
 
-We use a subset of the Amazon product review dataset (Patio, Lawn & Garden category).
+We use a subset of the Amazon Reviews 2023 dataset, specifically the Patio, Lawn & Garden category.
 
 The dataset consists of two sources:
 
-- **Reviews data**
-  - `review_title`
-  - `text` (review content)
-  - `rating`
-  - `parent_asin` (used for joining)
+- **Reviews data**, containing user-generated content such as review text, titles, and ratings  
+- **Metadata data**, containing product-level information such as product title, description, features, categories, price, and aggregate ratings  
 
-- **Metadata data**
-  - `product_title`
-  - `description`
-  - `features`
-  - `categories`
-  - `average_rating`
-  - `rating_number`
-  - `price`
-  - `parent_asin` (used for joining)
+These two sources are linked using the `parent_asin` identifier.
+
+The dataset is sourced from:
+
+- https://amazon-reviews-2023.github.io/  
+- https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023  
 
 ---
 
@@ -54,7 +48,7 @@ The raw review and metadata files are merged using `parent_asin`.
 
 We retain a subset of fields relevant for retrieval and display.
 
-For semantic search, we construct a combined text field:
+For both BM25 and semantic search, we construct a combined text field by concatenating:
 
 - product title  
 - review title  
@@ -63,10 +57,26 @@ For semantic search, we construct a combined text field:
 - description  
 - categories  
 
+In addition to this combined text used for retrieval, the following metadata fields are retained to support result display in the web application:
+
+- `product_title`  
+- `review_title`  
+- `review_text`  
+- `rating`  
+- `average_rating`  
+- `rating_number`  
+- `price`  
+
 Basic preprocessing includes:
-- handling missing values  
-- converting fields to strings  
+- handling missing values (e.g., price and sparse metadata fields)  
+- ensuring all text fields are consistently formatted as strings  
+- converting list-based fields (features, description, categories) into plain text  
 - concatenating text fields into a single document per row  
+
+Additional preprocessing is applied depending on the retrieval method:
+
+- **BM25:** tokenization (lowercasing, punctuation removal, whitespace splitting)  
+- **Semantic search:** uses the combined text directly and encodes it into embeddings  
 
 ---
 
@@ -85,24 +95,29 @@ The processed dataset is stored as a parquet file and included in the repository
 
 ---
 
-## Retrieval Methods
+# Retrieval Methods
 
 ### BM25 Retrieval
 
-- Uses a tokenized version of the dataset
-- Applies simple preprocessing:
-  - lowercasing  
-  - punctuation removal  
-  - whitespace tokenization  
-- Retrieves documents based on keyword matching and term frequency
+- Uses a tokenized representation of the dataset  
+- Performs keyword-based retrieval using term frequency and inverse document frequency  
+- Ranks documents based on how well the words in the query match the words in the document  
+- Returns a BM25 relevance score for each result, where higher scores indicate better matches  
 
 ### Semantic Search
 
-- Uses `sentence-transformers/all-MiniLM-L6-v2`
-- Documents are embedded into vector representations
-- FAISS is used to build an index for efficient similarity search
-- Queries are encoded and matched against document embeddings
-- Results are ranked based on vector similarity
+- Uses `sentence-transformers/all-MiniLM-L6-v2` to encode text into dense vector embeddings  
+- FAISS is used to build an index for efficient similarity search 
+- Queries are encoded and used to retrieve the most similar documents from the FAISS index
+- Retrieval is based on embedding distance (closer = more similar)  
+
+For interpretability, distances are converted into a similarity-style score:
+
+```python
+score = 1 / (1 + distance)
+```
+
+so that higher scores correspond to closer matches.
 
 ---
 
@@ -113,8 +128,7 @@ The processed dataset is stored as a parquet file and included in the repository
 ```bash
 git clone https://github.com/UBC-MDS/DSCI_575_project_saunde95_sashasph.git
 ```
-
-If you have SSH configured, you may use the SSH URL instead of HTTPS. 
+If you have SSH configured, you may use the SSH URL instead of HTTPS.
 
 ### 2. Create and Activate Environment
 
@@ -181,7 +195,7 @@ Results and discussion can be found in:
 
 ## Notes
 
-- The FAISS index file is not included in the repository due to size constraints and is generated locally. 
-- Duplicate results may occur because each review is treated as a separate document rather than aggregating at the product level. 
+- Retrieval artifacts for both BM25 (tokenized documents and retriever object) and semantic search (FAISS index) are generated locally and stored in `data/processed/`. These files are not included in the repository due to size constraints.  
+- Duplicate results may occur because each review is treated as a separate document rather than aggregating at the product level.  
 
-These limitations highlight opportunities for improvement in later milestones, including aggregation at the product level and hybrid retrieval approaches.
+These limitations highlight opportunities for improvement in later milestones, including aggregation at the product level.
