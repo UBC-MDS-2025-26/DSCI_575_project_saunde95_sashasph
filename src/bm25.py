@@ -213,13 +213,16 @@ def bm25_search(retriever, query, top_k=5):
         - average_rating : float or None
         - rating_number : int or None
         - price : str
+        - score : float
     """
-    processed_query = " ".join(simple_tokenize(query)) 
-    docs = retriever.invoke(processed_query)[:top_k]
+    tokenized_query = simple_tokenize(query)
+    scores = retriever.vectorizer.get_scores(tokenized_query)
+    ranked_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+    docs = [retriever.docs[i] for i in ranked_indices]
 
     results = []
 
-    for rank, doc in enumerate(docs, 1):
+    for rank, (doc_idx, doc) in enumerate(zip(ranked_indices, docs), 1):
         m = doc.metadata
 
         results.append({
@@ -229,7 +232,8 @@ def bm25_search(retriever, query, top_k=5):
             "rating": int(m.get("rating")) if pd.notna(m.get("rating")) else None,
             "average_rating": float(m.get("average_rating")) if pd.notna(m.get("average_rating")) else None,
             "rating_number": int(m.get("rating_number")) if pd.notna(m.get("rating_number")) else None,
-            "price": str(m.get("price")) if pd.notna(m.get("price")) else "N/A"
+            "price": str(m.get("price")) if pd.notna(m.get("price")) else "N/A",
+            "score": round(float(scores[doc_idx]), 3),
         })
 
     return results
