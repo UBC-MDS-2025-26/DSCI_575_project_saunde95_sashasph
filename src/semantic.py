@@ -11,6 +11,7 @@ It includes functions to:
 - build or load a saved FAISS vector store
 - perform semantic search and return ranked, structured results
   with product and review metadata
+- convert the vector store into a semantic retriever for RAG
 
 This module is used by the app and other project components to retrieve
 and display relevant documents based on semantic similarity.
@@ -222,3 +223,24 @@ def semantic_search(query, vectorstore, top_k=5):
         })
 
     return results
+
+def get_semantic_retriever(vectorstore, top_k=5):
+    """
+    Convert a LangChain FAISS vector store into a semantic retriever.
+
+    Parameters
+    ----------
+    vectorstore : FAISS
+        LangChain FAISS vector store.
+    top_k : int, default=5
+        Number of documents to retrieve.
+
+    Returns
+    -------
+    BaseRetriever
+        LangChain retriever for semantic search.
+    """
+    return vectorstore.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": top_k}
+    )
