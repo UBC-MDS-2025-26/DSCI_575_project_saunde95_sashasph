@@ -1,45 +1,36 @@
 """
 build_semantic_index.py
 
-Build embeddings and a FAISS index for semantic search.
+Build a semantic vector store for semantic search.
 
-Run from project root:
-python src/build_semantic_index.py
+Run:
+python -m src.build_semantic_index
 """
 
 import os
-from src.semantic import (
-    load_documents,
-    build_embeddings,
-    build_faiss_index,
-    save_faiss_index
-)
+from src.semantic import get_or_build_vectorstore
 
 
 def main():
-    data_path = "data/processed/processed_data_sample.parquet"
-    index_path = "data/processed/faiss_index.index"
+    """
+    Build the semantic vector store if it does not already exist.
 
-    # Optional: avoid rebuilding if index already exists
-    if os.path.exists(index_path):
-        print(f"FAISS index already exists at {index_path}. Skipping build.")
+    If the saved FAISS vector store folder is already present, the build step
+    is skipped. Otherwise, the vector store is created and saved locally for
+    faster loading in future runs.
+    """
+    data_path = "data/processed/processed_data_sample.parquet"
+    store_path = "data/processed/faiss_store"
+
+    if os.path.exists(store_path):
+        print("Loaded semantic vector store.")
         return
 
-    print("Loading documents...")
-    df, documents = load_documents(data_path)
-
-    print(f"Loaded {len(documents)} documents.")
-
-    print("Building embeddings (this may take a while)...")
-    model, embeddings = build_embeddings(documents)
-
-    print("Building FAISS index...")
-    index = build_faiss_index(embeddings)
-
-    print("Saving FAISS index...")
-    save_faiss_index(index, index_path)
-
-    print(f"Done! FAISS index saved to: {index_path}")
+    get_or_build_vectorstore(
+        data_path=data_path,
+        store_path=store_path,
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
 
 
 if __name__ == "__main__":

@@ -4,10 +4,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from shiny import App, ui, render, reactive
-from sentence_transformers import SentenceTransformer
 from src.semantic import (
-    load_documents as load_semantic_docs,
-    load_faiss_index,
+    get_or_build_vectorstore,
     semantic_search
 )
 from src.bm25 import (
@@ -16,28 +14,38 @@ from src.bm25 import (
     bm25_search
 )
 
-# ---- Load semantic search artifacts once at startup ----
+# ---- Load retrieval artifacts once at startup ----
 DATA_PATH = "data/processed/processed_data_sample.parquet"
-INDEX_PATH = "data/processed/faiss_index.index"
+SEMANTIC_STORE_PATH = "data/processed/faiss_store"
 DOCS_PATH = "data/processed/bm25_docs.pkl"
 BM25_PATH = "data/processed/bm25_retriever.pkl"
 
-df, _ = load_semantic_docs(DATA_PATH)
-index = load_faiss_index(INDEX_PATH)
-model = SentenceTransformer("all-MiniLM-L6-v2")
+semantic_vectorstore = get_or_build_vectorstore(
+    data_path=DATA_PATH,
+    store_path=SEMANTIC_STORE_PATH,
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
+
 docs = load_bm25_docs(DOCS_PATH)
 bm25 = load_bm25_retriever(BM25_PATH)
 
 
 def truncate_text(text, max_chars=200):
-    """Truncate long review text for cleaner app display."""
+    """
+    Truncate long review text for cleaner app display.
+    """
     if text is None:
         return ""
     text = str(text)
     return text if len(text) <= max_chars else text[:max_chars] + "..."
 
+
 def display_text(val):
+    """
+    Format missing values for display in the app.
+    """
     return "N/A" if val is None else str(val)
+
 
 TITLE_STYLE = (
     "font-family:'Poppins', sans-serif; "
@@ -47,6 +55,7 @@ TITLE_STYLE = (
     "margin:10px 0 0 0; "
     "letter-spacing:1px;"
 )
+
 SUBTITLE_STYLE = (
     "font-family:'Poppins', sans-serif; "
     "color:rgba(68,74,34,0.75); "
@@ -56,15 +65,20 @@ SUBTITLE_STYLE = (
     "letter-spacing:0.2px;"
 )
 
+
 app_ui = ui.page_fluid(
-    ui.tags.div("Amazon Patio, Lawn and Garden Product Search", style = TITLE_STYLE),
+    ui.tags.div("Amazon Patio, Lawn and Garden Product Search", style=TITLE_STYLE),
     ui.tags.div(
         "Explore product reviews using keyword (BM25) or semantic search",
-        style = SUBTITLE_STYLE   
+        style=SUBTITLE_STYLE
     ),
     ui.layout_sidebar(
         ui.sidebar(
-            ui.input_text("query", "Enter your query:", placeholder="e.g. large decorative mailbox cover"),
+            ui.input_text(
+                "query",
+                "Enter your query:",
+                placeholder="e.g. large decorative mailbox cover"
+            ),
             ui.input_radio_buttons(
                 "method",
                 "Search method:",
@@ -90,14 +104,14 @@ def server(input, output, session):
             return {"method": method, "results": [], "message": "Please enter a query."}
 
         if method == "Semantic":
-            results = semantic_search(query, model, index, df, top_k=3)
+            results = semantic_search(query, semantic_vectorstore, top_k=3)
             return {"method": method, "results": results, "message": None}
 
-        elif method == "BM25":
+        if method == "BM25":
             results = bm25_search(bm25, query, top_k=3)
             return {"method": method, "results": results, "message": None}
 
-        return {"method": method, "results": results, "message": None}
+        return {"method": method, "results": [], "message": "Invalid search method."}
 
     @output
     @render.ui
@@ -129,24 +143,20 @@ def server(input, output, session):
                     ui.span(
                         f"{method} score: {score:.3f}" if score is not None else "N/A",
                         style="font-weight:bold;"
-                        ),
-                        style="display:flex; justify-content:space-between; align-items:center;"
-                        ),
-                        ui.h4(result.get("product_title", "Untitled product")),
-                        ui.p(
-                            f"Average rating: {display_text(average_rating)} | "
-                            f"Number of ratings: {display_text(rating_number)} | "
-                            f"Price: {display_text(price)}"
-                            ),
-                        ui.p(
-                            f"Rating: {display_text(rating)}"
-                            ),
-                        ui.p(review_text),
+                    ),
+                    style="display:flex; justify-content:space-between; align-items:center;"
+                ),
+                ui.h4(result.get("product_title", "Untitled product")),
+                ui.p(
+                    f"Average rating: {display_text(average_rating)} | "
+                    f"Number of ratings: {display_text(rating_number)} | "
+                    f"Price: {display_text(price)}"
+                ),
+                ui.p(f"Rating: {display_text(rating)}"),
+                ui.p(review_text),
+                full_screen=False,
+            )
 
-                        full_screen=False,
-                            )
-            
-            
             cards.append(card)
 
         return ui.TagList(*cards)
