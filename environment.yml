@@ -17,3 +17,6 @@ dependencies:
       - langchain
       - langchain-community
       - shiny
+      - langchain-huggingface
+      - langchain-groq
+      - huggingface-hub

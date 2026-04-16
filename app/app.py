@@ -4,10 +4,8 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from shiny import App, ui, render, reactive
-from sentence_transformers import SentenceTransformer
 from src.semantic import (
-    load_documents as load_semantic_docs,
-    load_faiss_index,
+    get_or_build_vectorstore,
     semantic_search
 )
 from src.bm25 import (
@@ -18,13 +16,16 @@ from src.bm25 import (
 
 # ---- Load semantic search artifacts once at startup ----
 DATA_PATH = "data/processed/processed_data_sample.parquet"
-INDEX_PATH = "data/processed/faiss_index.index"
+STORE_PATH = "data/processed/faiss_store"
 DOCS_PATH = "data/processed/bm25_docs.pkl"
 BM25_PATH = "data/processed/bm25_retriever.pkl"
 
-df, _ = load_semantic_docs(DATA_PATH)
-index = load_faiss_index(INDEX_PATH)
-model = SentenceTransformer("all-MiniLM-L6-v2")
+semantic_vectorstore = get_or_build_vectorstore(
+    data_path=DATA_PATH,
+    store_path=STORE_PATH,
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
+
 docs = load_bm25_docs(DOCS_PATH)
 bm25 = load_bm25_retriever(BM25_PATH)
 
@@ -90,7 +91,7 @@ def server(input, output, session):
             return {"method": method, "results": [], "message": "Please enter a query."}
 
         if method == "Semantic":
-            results = semantic_search(query, model, index, df, top_k=3)
+            results = semantic_search(query, semantic_vectorstore, top_k=3)
             return {"method": method, "results": results, "message": None}
 
         elif method == "BM25":
