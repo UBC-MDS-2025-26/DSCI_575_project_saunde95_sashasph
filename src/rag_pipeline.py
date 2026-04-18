@@ -92,9 +92,9 @@ def build_context(docs):
             f"- Average product rating: {doc.metadata.get('average_rating', 'N/A')}\n"
             f"- Number of ratings: {doc.metadata.get('rating_number', 'N/A')}\n"
             f"- Price: {doc.metadata.get('price', 'N/A')}\n"
-            f"- Categories: {doc.metadata.get('categories', 'N/A')}\n"
+            # f"- Categories: {doc.metadata.get('categories', 'N/A')}\n"
             f"- Features: {doc.metadata.get('features', 'N/A')}\n"
-            f"- Description: {doc.metadata.get('description', 'N/A')}"
+            # f"- Description: {doc.metadata.get('description', 'N/A')}"
         )
         context_blocks.append(block)
 
