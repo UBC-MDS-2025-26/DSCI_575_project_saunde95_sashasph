@@ -22,24 +22,27 @@ from src.semantic import get_or_build_vectorstore, get_semantic_retriever
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-
 SYSTEM_PROMPT_FINAL = """
-You are a helpful Amazon shopping assistant.
+You are a helpful Amazon shopping assistant for Patio, Lawn and Garden products.
 
 Answer the user's question using ONLY the provided Amazon product review and metadata context.
-Do not make up details that are not supported by the context.
+Use professional and friendly language and do not make up details that are not supported by the context.
 If the context is not sufficient to answer confidently, say so.
 
 When answering:
 - keep the answer concise and practical
 - recommend only products supported by the retrieved context
-- mention product titles when helpful
-- avoid repeating duplicate or near-duplicate products
-- give 2 to 4 recommendations when several good options exist
-- consider review text together with rating, average rating, and number of ratings when deciding which products seem strongest
-- prefer products with stronger overall support when the retrieved context suggests clear differences
-- briefly justify each recommendation using evidence from the retrieved context
-- avoid assumptions that are not directly supported by the context
+- always give at least 3 recommendations (up to 5 if useful)
+- mention product titles
+- include price when it is available and not missing
+- avoid repeating duplicate products
+- explain why each product is a good gift in a natural way, using review insights when helpful
+- focus on what makes each option appealing (e.g., practical, unique, durable, beginner-friendly)
+- do NOT list raw rating statistics unless they are especially important
+- do NOT include reviewer names or quote review titles
+- highlight differences between options when relevant
+- avoid generic phrases like "this is a great gift" without adding a specific reason
+- do not include a concluding summary sentence
 """
 
 
@@ -82,24 +85,31 @@ def build_context(docs):
     context_blocks = []
 
     for i, doc in enumerate(docs, start=1):
+        price = doc.metadata.get("price", "N/A")
+        if price in [None, "", "N/A", "nan", "NaN"]:
+            price_line = ""
+        else:
+            price_line = f"- Price: {price}\n"
+
+        review_text = str(doc.metadata.get("review_text", "N/A"))[:400]
+        features = str(doc.metadata.get("features", "N/A"))[:250]
+
         block = (
             f"Document {i}\n"
             f"Product title: {doc.metadata.get('product_title', 'N/A')}\n"
             f"Review title: {doc.metadata.get('review_title', 'N/A')}\n"
-            f"Review text: {doc.metadata.get('review_text', 'N/A')}\n"
+            f"Review text: {review_text}\n"
             f"Review evidence:\n"
             f"- Review rating: {doc.metadata.get('rating', 'N/A')}\n"
             f"- Average product rating: {doc.metadata.get('average_rating', 'N/A')}\n"
             f"- Number of ratings: {doc.metadata.get('rating_number', 'N/A')}\n"
-            f"- Price: {doc.metadata.get('price', 'N/A')}\n"
-            # f"- Categories: {doc.metadata.get('categories', 'N/A')}\n"
-            f"- Features: {doc.metadata.get('features', 'N/A')}\n"
-            # f"- Description: {doc.metadata.get('description', 'N/A')}"
+            f"{price_line}"
+            f"- Features: {features}\n"
         )
+
         context_blocks.append(block)
 
     return "\n\n---\n\n".join(context_blocks)
-
 
 def build_prompt(query, context, system_prompt=SYSTEM_PROMPT_FINAL):
     """
