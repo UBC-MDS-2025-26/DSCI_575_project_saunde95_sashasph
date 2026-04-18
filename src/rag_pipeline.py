@@ -34,6 +34,7 @@ When answering:
 - recommend only products supported by the retrieved context
 - always give at least 3 recommendations (up to 5 if useful)
 - mention product titles
+- include price when it is available and not missing
 - avoid repeating duplicate products
 - explain why each product is a good gift in a natural way, using review insights when helpful
 - focus on what makes each option appealing (e.g., practical, unique, durable, beginner-friendly)
