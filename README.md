@@ -385,7 +385,8 @@ Results and discussion can be found in:
 
 - The RAG pipeline is sensitive to context size, combining results from multiple retrieval methods can lead to longer prompts, requiring truncation of text fields or limiting the number of retrieved documents.  
 
-- In RAG mode, the recommended products may not exactly match those shown in the evaluation analysis, as retrieval and generation are dynamic and depend on the specific query and retrieved context.  
-- When a query does not provide sufficient information for a fully grounded answer, the system may still display relevant reference products based on the retrieved results.  
+- In RAG mode, the products referenced in the AI-generated analysis may not exactly match the products displayed below. The language model selectively uses the most relevant retrieved documents, while the app separately displays the top retrieved products for transparency.  
+
+- If a query does not provide sufficient information for a fully grounded answer, the AI may produce a limited or uncertain response; however, the app will still display retrieved reference products based on the underlying search results.  
 
 - Future improvements could include a re-ranking step to better prioritize the most relevant documents before generation.  
