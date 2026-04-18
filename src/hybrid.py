@@ -5,9 +5,12 @@ This module implements a hybrid retrieval system that combines:
 - a semantic retriever (FAISS-based vector search)
 - a BM25 keyword retriever
 
-The hybrid retriever is used in a RAG pipeline to improve retrieval quality
-by leveraging both semantic similarity and keyword matching over Amazon
-product reviews and metadata.
+It also provides a hybrid search function for ranking and returning
+top-k retrieved documents.
+
+The hybrid retriever is used in both search-only and RAG pipelines to
+improve retrieval quality by leveraging semantic similarity and keyword
+matching over Amazon product reviews and metadata.
 """
 
 from langchain_classic.retrievers import EnsembleRetriever
