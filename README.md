@@ -218,7 +218,7 @@ flowchart TD
     KB2[Tokenized Corpus] --> D2
     D2 --> E2[BM25 Results]
 
-    E1 --> F[Hybrid Ensemble semantic 0.6 BM25 0.4]
+    E1 --> F["Hybrid Ensemble<br>BM25 0.4<br>semantic 0.6"]
     E2 --> F
 
     F --> G[Top-k Documents]
@@ -297,9 +297,9 @@ If the vector store already exists, it will be loaded instead of rebuilt.
 
 These steps only need to be run once. If the saved files already exist, they will be reused.
 
-### 4. Set Up API Key (Required for RAG Mode)
+### 4. Set Up API Key (Required to Run the App)
 
-This project uses the Groq API to access the language model for RAG-based responses.
+This project uses the Groq API to access the language model for RAG-based responses. Because the app initializes the LLM on startup, a valid API key is required to run the application.
 
 #### Step 1: Create a Groq API Key
 - Go to: https://console.groq.com/keys
@@ -330,7 +330,7 @@ Then open the provided local URL in your browser.
 
 The app supports:
 
-- Search mode: displays retrieved products using BM25 and semantic search
+- Search mode: displays retrieved products using BM25, semantic search, and hybrid retrieval
 - RAG mode: generates a natural language answer using the full RAG pipeline
 ---
 
@@ -379,6 +379,13 @@ Results and discussion can be found in:
 ## Notes
 
 - Retrieval artifacts for both BM25 (tokenized documents and retriever object) and semantic search (LangChain FAISS vector store) are generated locally and stored in `data/processed/`. These files are not included in the repository due to size constraints.  
-- Duplicate results may occur because each review is treated as a separate document rather than aggregating at the product level.  
-- The RAG pipeline is sensitive to context size, combining results from multiple retrieval methods can lead to longer prompts, requiring truncation of text fields or limiting the number of retrieved documents.
-- Future improvements could include a re-ranking step to better prioritize the most relevant documents before generation.
+
+- Because each review is treated as a separate document rather than aggregating at the product level, duplicate results can arise in the underlying retrieval outputs.  
+- In Search mode, duplicate results are removed in the app interface, and the system ensures that at least three results are returned when possible.  
+
+- The RAG pipeline is sensitive to context size, combining results from multiple retrieval methods can lead to longer prompts, requiring truncation of text fields or limiting the number of retrieved documents.  
+
+- In RAG mode, the recommended products may not exactly match those shown in the evaluation analysis, as retrieval and generation are dynamic and depend on the specific query and retrieved context.  
+- When a query does not provide sufficient information for a fully grounded answer, the system may still display relevant reference products based on the retrieved results.  
+
+- Future improvements could include a re-ranking step to better prioritize the most relevant documents before generation.  
