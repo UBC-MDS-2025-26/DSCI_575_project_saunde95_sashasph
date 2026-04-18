@@ -207,7 +207,8 @@ We implement two versions of the RAG pipeline:
 Both pipelines follow the same flow:
 query → retrieve documents → build context → generate answer
 
-The hybrid RAG pipeline is used in the final application, as it provides more robust performance across different query types.
+The hybrid RAG pipeline is used in the web application, as it provides more robust performance across different query types. The semantic-only RAG pipeline is also fully implemented in `src/rag_pipeline.py` and can be run programmatically if needed, but is not exposed in the app interface.
+Both semantic and hybrid RAG pipelines are also demonstrated in `notebooks/milestone2_rag.ipynb`, where they can be run interactively to inspect intermediate outputs and generated responses.
 
 ---
 ## RAG Workflow Diagram
