@@ -168,6 +168,16 @@ The model is guided by a structured prompt that instructs it to:
 - do not include unnecessary statistics, reviewer names, or a concluding summary  
 - keep responses concise, clear, and practical  
 
+## Model Selection
+
+We use the **llama-3.1-8b-instant** model via the Groq API for our RAG pipeline.
+
+This model was selected because it provides strong instruction-following and coherent responses, which are important for synthesizing information from multiple retrieved documents into useful product recommendations.
+
+We chose an 8B-scale model as it offers a good balance between response quality and efficiency. Smaller models (e.g., 0.8B–4B) may be faster but are generally less reliable at combining context into grounded, multi-point answers. 
+
+Using the Groq API allows us to access this higher-capability model without requiring local GPU resources, while still maintaining fast enough inference for an interactive application.
+
 ---
 
 ## Hybrid Retrieval
