@@ -15,7 +15,7 @@ These two approaches allow us to compare traditional keyword-based retrieval wit
 
 In Milestone 2, we extend this system into a full Retrieval-Augmented Generation (RAG) pipeline by integrating a large language model (LLM). This allows the system to generate natural language answers grounded in retrieved Amazon product reviews and metadata.
 
-We also introduce a **hybrid retrieval approach**, combining BM25 and semantic search, and update the web application to support both retrieval-only and RAG-based query modes.
+We also introduce a **hybrid retrieval approach**, combining BM25 and semantic search, and update the web application to support both retrieval-only and RAG-based query modes, with options for semantic and hybrid retrieval.
 
 ---
 
@@ -207,7 +207,8 @@ We implement two versions of the RAG pipeline:
 Both pipelines follow the same flow:
 query → retrieve documents → build context → generate answer
 
-The hybrid RAG pipeline is used in the web application, as it provides more robust performance across different query types. The semantic-only RAG pipeline is also fully implemented in `src/rag_pipeline.py` and can be run programmatically if needed, but is not exposed in the app interface.
+Both semantic and hybrid RAG pipelines are available in the web application, allowing users to compare their behavior directly.
+
 Both semantic and hybrid RAG pipelines are also demonstrated in `notebooks/milestone2_rag.ipynb`, where they can be run interactively to inspect intermediate outputs and generated responses.
 
 ---
@@ -342,7 +343,9 @@ Then open the provided local URL in your browser.
 The app supports:
 
 - Search mode: displays retrieved products using BM25, semantic search, and hybrid retrieval
-- RAG mode: generates a natural language answer using the full RAG pipeline
+- RAG mode: generates a natural language answer using either the semantic or hybrid RAG pipeline
+
+In RAG mode, users can choose between semantic or hybrid retrieval to generate responses, while Search mode allows comparison of BM25, semantic, and hybrid retrieval without generation.
 ---
 
 ## Evaluation
