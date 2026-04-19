@@ -23,7 +23,7 @@ from src.hybrid import (
     hybrid_search
 
 )
-from src.rag_pipeline import get_llm
+from src.rag_pipeline import get_llm, run_semantic_rag
 from src.rag_pipeline_hybrid import run_hybrid_rag
 
 
@@ -215,7 +215,7 @@ def server(input, output, session):
     def search_results():
         query = input.query().strip()
         mode = input.mode()
-
+        
         if not query:
             return {
             "mode": mode,
@@ -248,8 +248,17 @@ def server(input, output, session):
         }
         
         elif mode == "RAG Mode":
+            method = input.method()
 
-            result = run_hybrid_rag(
+            if method == "Semantic":
+                result = run_semantic_rag(
+                    query=query,
+                    retriever=semantic, 
+                    llm=llm
+                )
+            
+            elif method == "Hybrid":
+                result = run_hybrid_rag(
                 query=query,
                 hybrid_retriever=hybrid_retriever,
                 llm=llm
@@ -267,17 +276,36 @@ def server(input, output, session):
         
     @render.ui
     def method_ui_container():
-        if input.mode() == "Search Only":
-            return ui.div(
-                ui.input_radio_buttons(
-                    "method",
-                    "",
-                    choices=["BM25", "Semantic", "Hybrid"],
-                    selected="BM25"
-                ),
-                class_="indented-group"
-            )
-        return None
+            mode = input.mode()
+        
+            if mode == "Search Only":
+                choices = ["BM25", "Semantic", "Hybrid"]
+            
+                return ui.div(
+                    ui.input_radio_buttons(
+                        "method",
+                        "Search Method",
+                        choices=choices,
+                        selected="Hybrid"
+                    ),
+                    class_="indented-group"
+                )
+            
+            elif mode == "RAG Mode":
+                choices = ["Semantic", "Hybrid"]
+            
+                return ui.div(
+                    ui.input_radio_buttons(
+                        "method",
+                        "RAG Retrieval Method",
+                        choices=choices,
+                        selected="Hybrid"
+                    ),
+                    class_="indented-group"
+                )
+            
+            return None
+
     
     @output
     @render.ui
