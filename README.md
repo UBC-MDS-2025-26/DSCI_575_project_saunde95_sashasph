@@ -214,7 +214,7 @@ Both semantic and hybrid RAG pipelines are also demonstrated in `notebooks/miles
 ---
 ## RAG Workflow Diagram
 
-The diagram below shows the retrieval and generation workflow used in the app when RAG mode using the hybrid method is selected. In Semantic RAG, only the semantic branch is used. In Hybrid RAG, both the semantic and BM25 branches are combined before generation.
+The diagram below shows the retrieval and generation workflow used in the app when RAG mode with the hybrid method is selected. In Semantic RAG, only the semantic branch is used. In Hybrid RAG, both the semantic and BM25 branches are combined before generation.
 
 ```mermaid
 flowchart TD
