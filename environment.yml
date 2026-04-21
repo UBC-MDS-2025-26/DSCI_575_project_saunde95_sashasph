@@ -20,3 +20,4 @@ dependencies:
       - langchain-huggingface
       - langchain-groq
       - huggingface-hub
+      - tavily-python

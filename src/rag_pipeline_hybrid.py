@@ -26,7 +26,7 @@ def run_hybrid_rag(query, hybrid_retriever, llm):
     hybrid_retriever :
         Combined retriever (semantic + BM25) that returns relevant documents.
     llm :
-        Language model used for generation.
+        Langauge model used for generation.
 
     Returns
     -------
@@ -36,6 +36,11 @@ def run_hybrid_rag(query, hybrid_retriever, llm):
 
     docs = hybrid_retriever.invoke(query)
     context = build_context(docs)
+
+    if len(docs) == 0 or "N/A" in context or context.strip() == "":
+        web_info = web_search(query)
+        context += "\n\nWeb search results:\n" + web_info
+
     prompt = build_prompt(query, context, SYSTEM_PROMPT_FINAL)
     response = llm.invoke(prompt)
 

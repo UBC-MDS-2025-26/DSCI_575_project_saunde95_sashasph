@@ -18,20 +18,38 @@ from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
 from src.semantic import get_or_build_vectorstore, get_semantic_retriever
-
+from src.web_search import web_search
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 SYSTEM_PROMPT_FINAL = """
 You are a helpful Amazon shopping assistant for Patio, Lawn and Garden products.
 
-Answer the user's question using ONLY the provided Amazon product review and metadata context.
+You MUST answer using the provided context first.
+
+The context may include:
+- Amazon product reviews and metadata
+- Web search results (when available)
+
+Web search triggering rules:
+Always use web search when the query includes:
+- price, cost, pricing
+- current, latest, new, updated
+- availability, in stock
+- product comparisons involving time-sensitive information
+
 Use professional and friendly language and do not make up details that are not supported by the context.
-If the context is not sufficient to answer confidently, say so.
+
+Rules:
+- Use all provided context (dataset + web search results) to answer.
+- If WEB SEARCH RESULTS are present, treat them as the most up-to-date and authoritative source.
+- Always use web results for pricing, availability, and current product information.
+- Do NOT say information is unavailable if web results contain it.
+- Prefer web results over dataset when they conflict.
+- If neither dataset nor web search contains the answer, say you cannot find reliable information.
 
 When answering:
 - keep the answer concise and practical
-- recommend only products supported by the retrieved context
 - always give at least 3 recommendations (up to 5 if useful)
 - mention product titles
 - include price when it is available and not missing
@@ -43,6 +61,8 @@ When answering:
 - highlight differences between options when relevant
 - avoid generic phrases like "this is a great gift" without adding a specific reason
 - do not include a concluding summary sentence
+
+If neither context nor web search contains the answer, then say you cannot find reliable information.
 """
 
 
@@ -183,6 +203,7 @@ def get_semantic_rag_components(
     retriever = get_semantic_retriever(vectorstore, top_k=top_k)
     llm = get_llm(model_name=llm_model_name)
 
+
     return vectorstore, retriever, llm
 
 
@@ -209,6 +230,11 @@ def run_semantic_rag(query, retriever, llm, system_prompt=SYSTEM_PROMPT_FINAL):
     """
     docs = retriever.invoke(query)
     context = build_context(docs)
+
+    if len(docs) == 0:
+        web_info = web_search(query)
+        context += "\n\nWeb search results:\n" + web_info
+
     prompt = build_prompt(query, context, system_prompt)
     response = llm.invoke(prompt)
 
