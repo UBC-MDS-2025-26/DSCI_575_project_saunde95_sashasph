@@ -1,6 +1,6 @@
 # Amazon Patio, Lawn and Garden Product Search
 
-Team Members: Sasha S, Claire Saunders 
+Team Members: Sasha S, Claire Saunders
 
 ## Project Overview
 
@@ -16,6 +16,8 @@ These two approaches allow us to compare traditional keyword-based retrieval wit
 In Milestone 2, we extend this system into a full Retrieval-Augmented Generation (RAG) pipeline by integrating a large language model (LLM). This allows the system to generate natural language answers grounded in retrieved Amazon product reviews and metadata.
 
 We also introduce a **hybrid retrieval approach**, combining BM25 and semantic search, and update the web application to support both retrieval-only and RAG-based query modes, with options for semantic and hybrid retrieval.
+
+In Milestone 3, we scale our dataset to 100,647 product-level documents (one per product) by re-building our parquet file to be aggregated at the product level. Further, we implement a new and improved LLM model with greater reasoning skills and update our code base to improve overall quality. All changes to code quality and more descriptions of what has changed since Milestone 2 can be found in `results/final_discussion.md`. 
 
 ---
 
@@ -34,6 +36,10 @@ We also introduce a **hybrid retrieval approach**, combining BM25 and semantic s
 - Dual-mode web app:
   - Search mode (retrieval only)
   - RAG mode (generated answers + supporting results)
+
+### Milestone 3
+- Stronger LLM model with improved reasoning ability
+- Scaled dataset to 100,647 product-level documents (one per unique product) with multiple reviews for richer product-level context and improved retrieval quality. 
 
 ---
 
@@ -59,6 +65,8 @@ The dataset is sourced from:
 
 The raw review and metadata files are merged using `parent_asin`.
 
+In the final pipeline, we aggregate the dataset at the product level. Each row represents a single product, with multiple reviews combined into a single `review_text` field. This reduces duplicate results during retrieval and allows each document to contain richer product-level information.
+
 We retain a subset of fields relevant for both retrieval and result display.
 
 For both BM25 and semantic search, we construct a combined text field by concatenating:
@@ -75,7 +83,6 @@ In addition to this combined text used for retrieval, the following metadata fie
 - `product_title`  
 - `review_title`  
 - `review_text`  
-- `rating`  
 - `average_rating`  
 - `rating_number`  
 - `price`  
@@ -95,9 +102,9 @@ Additional preprocessing steps are applied depending on the retrieval method:
 
 ### Data Sampling and Size Considerations
 
-Due to the large size of the fully merged dataset (~14GB), we use a subset of 100,000 rows for this project.
+Due to the large size of the fully merged dataset (~14GB), we construct a scaled dataset of 100,647 product-level rows.
 
-This subset was created by randomly sampling from the fully merged dataset after combining the reviews and metadata tables. While this approach does not guarantee preservation of all underlying distributions, it is expected to retain a representative mix of products, reviews, and categories without introducing systematic bias.
+This dataset is created by sampling from the merged dataset after aggregation. While this approach does not guarantee preservation of all underlying distributions, it is expected to retain a representative mix of products, reviews, and categories without introducing systematic bias.
 
 This design choice allows the project to:
 - remain within GitHub file size limits
@@ -108,32 +115,27 @@ The processed dataset is stored as a parquet file and included in the repository
 
 ---
 
-# Retrieval Methods
+## Retrieval Methods
 
 ### BM25 Retrieval
 
 - Uses a tokenized representation of the dataset  
 - Performs keyword-based retrieval using term frequency and inverse document frequency  
 - Ranks documents based on how well the words in the query match the words in the document  
-- Returns a BM25 relevance score for each result, where higher scores indicate better matches  
+- Returns a ranked list of relevant documents based on keyword matching
 
 ### Semantic Search
 
 - Uses `sentence-transformers/all-MiniLM-L6-v2` to encode text into dense vector embeddings  
-- FAISS is used to build an index for efficient similarity search 
-- Queries are encoded and used to retrieve the most similar documents from the FAISS index
-- Retrieval is based on embedding distance (closer = more similar)  
+- FAISS is used to build an index for efficient similarity search
+- Queries are encoded and used to retrieve the top-k most similar documents from the FAISS index
+- Retrieval is based on cosine similarity between normalized embeddings, where higher scores indicate more similar documents.
 
-For interpretability, distances are converted into a similarity-style score:
+Both retrieval methods operate on product-level documents, where each document represents a single product with aggregated review content.
 
-```python
-score = 1 / (1 + distance)
-```
-so that higher scores correspond to closer matches.
+## RAG Pipeline (Milestone 2)
 
-# RAG Pipeline (Milestone 2)
-
-In Milestone 2, we extend the retrieval system into a full **Retrieval-Augmented Generation (RAG)** pipeline.
+In Milestone 2, we extended the retrieval system into a full **Retrieval-Augmented Generation (RAG)** pipeline.
 
 The pipeline consists of three main components:
 
@@ -148,36 +150,73 @@ We implement two retrieval strategies:
 The retrieved documents are formatted into a structured context block that includes:
 - product title  
 - review title and truncated review text  
-- supporting metadata (rating, average rating, number of ratings, features, and price when available)  
+- supporting metadata (average rating, number of ratings, features, and price when available)  
 
 To manage prompt size, longer text fields are truncated before being passed to the model.
 
 ### 3. LLM Generator
 A language model (via Groq API) generates a final answer using only the retrieved context.
 
-The model is guided by a structured prompt that instructs it to:
-- rely strictly on the provided context and avoid unsupported claims  
-- state when the context is insufficient to answer confidently  
-- provide at least 3 recommendations (up to 5 when useful)  
-- mention product titles and include price when available  
-- use both review text and metadata to support recommendations  
-- explain why each product is a good option using evidence from the retrieved documents  
-- highlight differences between products when relevant  
-- avoid repeating duplicate or near-duplicate products  
-- avoid generic phrasing and unsupported claims  
-- do not include unnecessary statistics, reviewer names, or a concluding summary  
-- keep responses concise, clear, and practical  
+#### Model Selection
 
-## Model Selection
+We compared two LLMs with different sizes and capabilities during development:
 
-We use the **llama-3.1-8b-instant** model via the Groq API for our RAG pipeline.
+- **`llama-3.1-8b-instant`** — a smaller, faster model with strong instruction-following but more limited reasoning ability  
+- **`llama-3.3-70b-versatile`** — a larger model with stronger reasoning and improved ability to synthesize information across multiple retrieved documents  
 
-This model was selected because it provides strong instruction-following and coherent responses, which are important for synthesizing information from multiple retrieved documents into useful product recommendations.
+Through qualitative evaluation (see `notebooks/milestone3_exploration.ipynb`), we found that the 70B model consistently produced higher-quality outputs, particularly for more complex or abstract queries. It demonstrated stronger reasoning, better handling of incomplete context, and more natural explanations.
 
-We chose an 8B-scale model as it offers a good balance between response quality and efficiency. Smaller models (e.g., 0.8B–4B) may be faster but are generally less reliable at combining context into grounded, multi-point answers. 
+Based on these results, we selected **`llama-3.3-70b-versatile`** as the default model for our final RAG pipeline.
 
-Using the Groq API allows us to access this higher-capability model without requiring local GPU resources, while still maintaining fast enough inference for an interactive application.
+#### Prompt Development
 
+We iteratively refined the system prompt to improve response quality, structure, and relevance in an application setting. Early versions of the prompt enforced strict constraints (e.g., always returning at least three recommendations), but this often led to weaker or less relevant results when the retrieved context was limited.
+
+The final prompt was optimized to:
+- prioritize relevance over forcing a fixed number of recommendations  
+- encourage concise, practical responses grounded in retrieved context  
+- use review text and metadata to support recommendations  
+- avoid unsupported claims and unnecessary statistics  
+- improve readability by encouraging clearer separation between product recommendations  
+
+These refinements resulted in more consistent, informative, and user-friendly outputs.
+
+The final prompt used in the application is shown below:
+
+```python
+SYSTEM_PROMPT_FINAL = """
+You are a helpful Amazon shopping assistant for Patio, Lawn and Garden products.
+
+Answer the user's question using ONLY the provided Amazon product review and metadata context.
+Do NOT make up products or details that are not supported by the context.
+If the context is not sufficient, clearly say so.
+
+FORMAT YOUR RESPONSE EXACTLY AS FOLLOWS:
+
+- Provide up to 5 product recommendations when relevant.
+- prioritize products that best match the user’s request
+- use review insights to support explanations when helpful (e.g., durability, ease of use, common issues)
+- avoid generic or repetitive statements about ratings (e.g., "highly rated", "4.5 stars") unless they add meaningful context
+- do not include products that clearly do not match key constraints in the query (e.g., wrong color, size, or use)
+- only include products that are supported by the context and are meaningfully relevant; do not include filler items to reach a specific number
+- Use a clean numbered list (1., 2., 3., etc.) with no extra text between items
+- Each item must follow this structure:
+
+<Number>. **Product Title** (Price if available)
+1–2 sentences of why this product fits the user’s request.
+
+Optionally include a short one-line header before the list that directly reflects the user’s request.
+Do NOT include long introductions or explanations before the list.
+Do NOT include a concluding summary sentence.
+
+STYLE GUIDELINES:
+- Keep the tone professional and friendly
+- Be concise and practical
+- Avoid generic phrases (e.g., “great gift”) without specific reasoning
+- Highlight what makes each option distinct when relevant
+- Avoid duplicate or irrelevant products
+"""
+```
 ---
 
 ## Hybrid Retrieval
@@ -190,8 +229,8 @@ To improve retrieval performance, we implement a hybrid retriever that combines:
 ### Approach
 
 We combine the two retrievers using a **weighted ensemble**, where:
-- semantic search contributes 60%  
-- BM25 contributes 40%  
+- semantic search contributes 50%  
+- BM25 contributes 50%  
 
 This produces a single ranked list of documents that balances keyword precision with semantic understanding.
 
@@ -219,7 +258,7 @@ The diagram below shows the retrieval and generation workflow used in the app wh
 ```mermaid
 flowchart TD
 
-    A[User Query] --> B1[Semantic Path]
+    A[User Query] --> B1[Semantic]
     A --> B2[BM25 Path]
 
     B1 --> C1[Encode Query with embeddings]
@@ -232,7 +271,7 @@ flowchart TD
     KB2[Tokenized Corpus] --> D2
     D2 --> E2[BM25 Results]
 
-    E1 --> F["Hybrid Ensemble<br>BM25 0.4<br>semantic 0.6"]
+    E1 --> F["Hybrid Ensemble<br>BM25 0.5<br>semantic 0.5"]
     E2 --> F
 
     F --> G[Top-k Documents]
@@ -290,9 +329,10 @@ python -m src.build_bm25
 ```
 
 This will: 
-- create tokenized documents
-- build the BM25 retriever
-- save them to `data/processed/` as `.pkl` files
+- check whether a saved BM25 corpus and metadata already exist
+- if they exist, reuse them
+- otherwise, tokenize the dataset and build a BM25 corpus
+- save the tokenized corpus and metadata to `data/processed/bm25_store/` for reuse
 
 Build Semantic Index:
 
@@ -300,15 +340,13 @@ Build Semantic Index:
 python -m src.build_semantic_index
 ```
 
-This will: 
-- load the processed parquet dataset
-- construct a combined text field for each row
-- convert rows into LangChain Document objects
+This will:
+- check whether a saved FAISS vector store already exists
+- if it exists, load it from disk
+- otherwise, load the processed dataset and construct a combined text field for each row
 - generate embeddings using `sentence-transformers/all-MiniLM-L6-v2`
-- build a FAISS vector store using LangChain
-- save the vector store locally to `data/processed/faiss_store/`
-
-If the vector store already exists, it will be loaded instead of rebuilt.
+- build a FAISS vector store using cosine similarity
+- save the vector store to `data/processed/faiss_store/` for reuse
 
 These steps only need to be run once. If the saved files already exist, they will be reused.
 
@@ -349,6 +387,7 @@ The app supports:
 - RAG mode: generates a natural language answer using either the semantic or hybrid RAG pipeline
 
 In RAG mode, users can choose between semantic or hybrid retrieval to generate responses, while Search mode allows comparison of BM25, semantic, and hybrid retrieval without generation.
+
 ---
 
 ## Evaluation
@@ -385,27 +424,41 @@ Results and discussion can be found in:
 - `results/milestone2_discussion.md`
 - `notebooks/milestone2_rag.ipynb`
 
-## Key Observations
+
+**Key Observations**
 
 - The hybrid RAG pipeline performs well on keyword-based and moderately abstract queries, combining precise matching (BM25) with semantic understanding.  
 - Performance declines on complex multi-constraint queries, where relevant documents are not consistently retrieved.  
 - In these cases, the LLM often filters out weak results rather than returning incorrect recommendations, resulting in fewer but more reasonable outputs.  
 
+### Milestone 3
+
+In Milestone 3, we evaluated improvements to the RAG pipeline by comparing different LLMs and refining the system prompt.
+
+We compared two models (`llama-3.1-8b-instant` and `llama-3.3-70b-versatile`) using the same set of queries and retrieved context. Evaluation was qualitative and focused on:
+
+- **Relevance** — whether recommended products closely match the user’s request  
+- **Reasoning** — how well the model synthesizes information across multiple documents  
+- **Clarity** — how easy the responses are to read and interpret  
+
+We also iteratively refined the system prompt to improve output structure, reduce irrelevant recommendations, and better prioritize strong matches when context is limited.
+
+Results and discussion can be found in:
+- `results/final_discussion.md`
+- `notebooks/milestone3_exploration.ipynb`
+
 ---
 
 ## Notes
 
-- Retrieval artifacts for both BM25 (tokenized documents and retriever object) and semantic search (LangChain FAISS vector store) are generated locally and stored in `data/processed/`. These files are not included in the repository due to size constraints.  
+- Retrieval artifacts for both BM25 (tokenized corpus and metadata) and semantic search (FAISS vector store) are generated locally and stored in `data/processed/`. These files are not included in the repository due to size constraints and are rebuilt or loaded as needed.
 
-- Because each review is treated as a separate document rather than aggregating at the product level, duplicate results can arise in the underlying retrieval outputs.  
-- In Search mode, duplicate results are removed in the app interface, and the system ensures that at least three results are returned when possible.  
+- The RAG pipeline is sensitive to context size. Combining results from multiple retrieval methods can lead to longer prompts, requiring truncation of text fields to remain within model token limits.
 
-- The RAG pipeline is sensitive to context size, combining results from multiple retrieval methods can lead to longer prompts, requiring truncation of text fields or limiting the number of retrieved documents.  
+- In RAG mode, the products referenced in the AI-generated response may not always perfectly align with the products displayed below. The app attempts to surface the most relevant retrieved documents, but the mapping between generated content and displayed results is not guaranteed to be exact.
 
-- In RAG mode, the products referenced in the AI-generated analysis may not always perfectly align with the products displayed below. The app attempts to match retrieved products to those used by the language model, but this mapping is not guaranteed to be exact.  
+- When the retrieved context does not provide sufficient information, the model may return fewer recommendations or indicate uncertainty rather than forcing unsupported outputs.
 
-- When a query does not provide sufficient information for a fully grounded answer, the AI may produce a limited or uncertain response; however, the app will still display retrieved reference products based on the underlying search results.  
+- Running RAG queries too frequently or in rapid succession may result in failures due to API rate limits.
 
-- Running RAG queries too frequently or in rapid succession may result in failures due to API rate limits.  
-
-- Future improvements could include a re-ranking step to better prioritize the most relevant documents before generation.  
+- Future improvements could include adding a re-ranking step to better prioritize the most relevant documents before generation, as well as deploying the application to a cloud environment for scalability.
