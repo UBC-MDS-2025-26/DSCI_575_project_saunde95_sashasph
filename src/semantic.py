@@ -154,7 +154,7 @@ def get_or_build_vectorstore(
         Path to the processed parquet file.
     store_path : str or pathlib.Path, default=FAISS_STORE_PATH
         Folder path where the FAISS vector store should be saved or loaded from.
-    model_name : str, default="sentence-transformers/all-MiniLM-L6-v2"
+    embedding_model_name : str, default=EMBEDDING_MODEL_NAME
         Name of the embedding model to use.
 
     Returns
