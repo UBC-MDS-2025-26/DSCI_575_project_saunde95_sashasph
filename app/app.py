@@ -45,7 +45,7 @@ def truncate_text(text, max_chars=200):
 
 def display_text(val):
     """Return a display-friendly string, using 'N/A' for missing values."""
-    return "N/A" if val is None else str(val)
+    return "N/A" if val is None or str(val).strip().lower() in {"nan", ""} else str(val)
 
 def rating_to_stars(rating):
     """Convert a numeric rating into a star display for the app."""
