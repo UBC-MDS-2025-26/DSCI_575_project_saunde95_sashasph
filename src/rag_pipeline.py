@@ -12,15 +12,11 @@ product review and metadata context.
 """
 
 import os
-from pathlib import Path
-
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
 from src.semantic import get_or_build_vectorstore, get_semantic_retriever
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from src.config import DATA_PATH, FAISS_STORE_PATH, LLM_MODEL_NAME, EMBEDDING_MODEL_NAME
 
 
 SYSTEM_PROMPT_FINAL = """
@@ -57,13 +53,13 @@ STYLE GUIDELINES:
 """
 
 
-def get_llm(model_name="llama-3.3-70b-versatile"):
+def get_llm(model_name=LLM_MODEL_NAME):
     """
     Load the Groq chat model used for generation.
 
     Parameters
     ----------
-    model_name : str, default="llama-3.3-70b-versatile"
+    model_name : str, default=LLM_MODEL_NAME
         Name of the Groq-hosted model to use.
 
     Returns
@@ -111,7 +107,6 @@ def build_context(docs):
             f"Review title: {doc.metadata.get('review_title', 'N/A')}\n"
             f"Review text: {review_text}\n"
             f"Review evidence:\n"
-            f"- Review rating: {doc.metadata.get('rating', 'N/A')}\n"
             f"- Average product rating: {doc.metadata.get('average_rating', 'N/A')}\n"
             f"- Number of ratings: {doc.metadata.get('rating_number', 'N/A')}\n"
             f"{price_line}"
@@ -121,6 +116,7 @@ def build_context(docs):
         context_blocks.append(block)
 
     return "\n\n---\n\n".join(context_blocks)
+
 
 def build_prompt(query, context, system_prompt=SYSTEM_PROMPT_FINAL):
     """
@@ -153,10 +149,10 @@ Answer:"""
 
 
 def get_semantic_rag_components(
-    data_path=None,
-    store_path=None,
-    embedding_model_name="sentence-transformers/all-MiniLM-L6-v2",
-    llm_model_name="llama-3.3-70b-versatile",
+    data_path=DATA_PATH,
+    store_path=FAISS_STORE_PATH,
+    embedding_model_name=EMBEDDING_MODEL_NAME,
+    llm_model_name=LLM_MODEL_NAME,
     top_k=5,
 ):
     """
@@ -164,13 +160,13 @@ def get_semantic_rag_components(
 
     Parameters
     ----------
-    data_path : str or Path or None, default=None
-        Path to the processed parquet file. If None, the default project path is used.
-    store_path : str or Path or None, default=None
-        Path to the saved semantic FAISS vector store. If None, the default project path is used.
-    embedding_model_name : str, default="sentence-transformers/all-MiniLM-L6-v2"
+    data_path : str or pathlib.Path, default=DATA_PATH
+        Path to the processed parquet file. 
+    store_path : str or pathlib.Path, default=FAISS_STORE_PATH
+        Path to the saved semantic FAISS vector store. 
+    embedding_model_name : str, default=EMBEDDING_MODEL_NAME
         Name of the embedding model used for semantic retrieval.
-    llm_model_name : str, default="llama-3.3-70b-versatile"
+    llm_model_name : str, default=LLM_MODEL_NAME
         Name of the Groq-hosted LLM.
     top_k : int, default=5
         Number of documents to retrieve.
@@ -180,16 +176,11 @@ def get_semantic_rag_components(
     tuple
         (vectorstore, retriever, llm)
     """
-    if data_path is None:
-        data_path = PROJECT_ROOT / "data" / "processed" / "processed_data_sample.parquet"
-
-    if store_path is None:
-        store_path = PROJECT_ROOT / "data" / "processed" / "faiss_store"
 
     vectorstore = get_or_build_vectorstore(
-        data_path=str(data_path),
-        store_path=str(store_path),
-        model_name=embedding_model_name,
+        data_path=data_path,
+        store_path=store_path,
+        embedding_model_name=embedding_model_name,
     )
     retriever = get_semantic_retriever(vectorstore, top_k=top_k)
     llm = get_llm(model_name=llm_model_name)

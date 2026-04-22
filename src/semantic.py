@@ -18,17 +18,19 @@ This module is used by the app and other project components to retrieve
 and display relevant documents based on semantic similarity.
 """
 
-from pathlib import Path
+import os
 import re
+from pathlib import Path
+
 import pandas as pd
-from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
+from huggingface_hub.utils import logging as hf_logging
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
+from langchain_core.documents import Document
+from langchain_huggingface import HuggingFaceEmbeddings
+from transformers.utils import logging as transformers_logging
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "processed_scaled_sample.parquet"
-DEFAULT_STORE_PATH = PROJECT_ROOT / "data" / "processed" / "faiss_store"
+from src.config import DATA_PATH, FAISS_STORE_PATH, EMBEDDING_MODEL_NAME
 
 def clean_text(value):
     """
@@ -57,7 +59,7 @@ def clean_text(value):
     return text
 
 
-def load_documents(path=DEFAULT_DATA_PATH):
+def load_documents(path=DATA_PATH):
     """
     Load the dataset and create a combined text column for semantic retrieval.
 
@@ -67,7 +69,7 @@ def load_documents(path=DEFAULT_DATA_PATH):
 
     Parameters
     ----------
-    path : pathlib.Path or str, default=DEFAULT_DATA_PATH
+    path : str or pathlib.Path, default=DATA_PATH
         Path to the processed parquet file.
 
     Returns
@@ -131,9 +133,9 @@ def make_langchain_documents(df):
 
 
 def get_or_build_vectorstore(
-    data_path=DEFAULT_DATA_PATH,
-    store_path=DEFAULT_STORE_PATH,
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+    data_path=DATA_PATH,
+    store_path=FAISS_STORE_PATH,
+    embedding_model_name=EMBEDDING_MODEL_NAME
 ):
     """
     Load a saved FAISS vector store if it exists, otherwise build and save it.
@@ -148,9 +150,9 @@ def get_or_build_vectorstore(
 
     Parameters
     ----------
-    data_path : pathlib.Path or str, default=DEFAULT_DATA_PATH
+    data_path : str or pathlib.Path, default=DATA_PATH
         Path to the processed parquet file.
-    store_path : pathlib.Path or str, default=DEFAULT_STORE_PATH
+    store_path : str or pathlib.Path, default=FAISS_STORE_PATH
         Folder path where the FAISS vector store should be saved or loaded from.
     model_name : str, default="sentence-transformers/all-MiniLM-L6-v2"
         Name of the embedding model to use.
@@ -160,8 +162,13 @@ def get_or_build_vectorstore(
     FAISS
         Loaded or newly built LangChain FAISS vector store.
     """
+    # Disabling noisy warning messages from user output 
+    os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
+    transformers_logging.set_verbosity_error()
+    hf_logging.set_verbosity_error()
+
     embeddings = HuggingFaceEmbeddings(
-        model_name=model_name,
+        model_name=embedding_model_name,
         encode_kwargs={"normalize_embeddings": True}
     )
     
