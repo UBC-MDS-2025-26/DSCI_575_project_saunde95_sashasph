@@ -29,7 +29,6 @@ from src.rag_pipeline_hybrid import run_hybrid_rag
 
 DATA_PATH = "data/processed/processed_scaled_sample.parquet"
 FAISS_STORE_PATH = "data/processed/faiss_store"
-BM25_STORE_PATH = "data/processed/bm25_store"
 
 vectorstore = get_or_build_vectorstore(data_path=DATA_PATH, store_path=FAISS_STORE_PATH)
 semantic = get_semantic_retriever(vectorstore, top_k=5)
