@@ -1,30 +1,32 @@
 """
 bm25.py
 
-This module implements a bm25-based search system for information retrieval.
+This module implements a BM25-based keyword retrieval system for
+information retrieval.
 
 It includes functions to:
-- Load and preprocess data from a parquet file
-- Tokenize text for keyword-based retrieval
-- Convert data into LangChain Document objects
-- Build a BM25 retriever
-- Perform BM25 search and return ranked, structured results with
-  product and review metadata
+- load and preprocess data from a parquet file
+- clean and normalize text fields for keyword-based retrieval
+- tokenize text for BM25-based retrieval
+- build or load a saved BM25 corpus and metadata store
+- build a BM25 retriever for keyword-base search
+- perform ranked keyword search and return structured results
+  with product and review metadata
 
 This module is used by the app and other project components to retrieve
 and display relevant documents based on keyword search.
 """
 
-import pandas as pd
+import os
 import re
 import pickle
-import os
+import pandas as pd
 from langchain_core.documents import Document
 from langchain_community.retrievers import BM25Retriever
 
 
 
-def load_and_preprocess_data(path="data/processed/processed_data_sample.parquet"):
+def load_and_preprocess_data(path="data/processed/processed_scaled_sample.parquet"):
     """
     Load dataset and create combined text for BM25 retrieval.
 
@@ -45,7 +47,7 @@ def load_and_preprocess_data(path="data/processed/processed_data_sample.parquet"
     df["combined_text"] = (
         df["product_title"].fillna("").astype(str) + ". " +
         df["review_title"].fillna("").astype(str) + ". " +
-        df["text"].fillna("").astype(str) +
+        df["review_text"].fillna("").astype(str) + ". " +
         df["features"].fillna("").astype(str) + ". " +
         df["description"].fillna("").astype(str) + ". " +
         df["categories"].fillna("").astype(str)
@@ -73,121 +75,102 @@ def simple_tokenize(text):
     text = re.sub(r"[^a-z0-9\s-]", "", text)   
     return text.split()
 
-
-def add_tokens(df):
+def get_or_build_bm25_data(data_path="data/processed/processed_scaled_sample.parquet",
+                           corpus_path="data/processed/bm25_store/bm25_corpus.pkl",
+                           meta_path="data/processed/bm25_store/bm25_metadata.pkl"):
     """
-    Apply tokenization to a dataframe column and store results in a new column.
+    Build or load BM25 corpus and metadata.
 
-    Parameters:
+    If saved BM25 files exist, load them from disk.
+    Otherwise, build the corpus and metadata from the processed dataset
+    and save them for future use.
+
+    Parameters
     ----------
-    df : pandas.DataFrame
-        Input dataframe containing text data.
+    data_path : str, default="data/processed/processed_scaled_sample.parquet"
+        Path to the processed parquet dataset.
+    corpus_path : str, default="data/processed/bm25_store/bm25_corpus.pkl"
+        File path where the tokenized corpus is saved/loaded.
+    meta_path : str, default="data/processed/bm25_store/bm25_metadata.pkl"
+        File path where metadata is saved/loaded.
 
-    Returns:
+    Returns
     -------
-    df: pandas.DataFrame
-        DataFrame with an added `tokens` column.
+    corpus : list of list of str
+        Tokenized BM25 corpus (each document is a list of tokens).
+    metadata : list of dict
+        Document metadata including product title, review text, price, etc.
     """
-    df["tokens"] = df["combined_text"].apply(simple_tokenize)
 
-    return df
+    if os.path.exists(corpus_path) and os.path.exists(meta_path):
+
+        with open(corpus_path, "rb") as f:
+            corpus = pickle.load(f)
+
+        with open(meta_path, "rb") as f:
+            metadata = pickle.load(f)
+
+        print("Loaded BM25 data.")
+        return corpus, metadata
+    
+    print("Building BM25 data...")
+
+    df = load_and_preprocess_data(data_path)
+
+    corpus = df["combined_text"].apply(simple_tokenize).tolist()
+
+    metadata = df[[
+        "product_title",
+        "review_title",
+        "review_text",
+        "price",
+        "average_rating",
+        "rating_number"
+    ]].to_dict("records")
+
+    os.makedirs(os.path.dirname(corpus_path), exist_ok=True)
+
+    with open(corpus_path, "wb") as f:
+        pickle.dump(corpus, f)
+
+    with open(meta_path, "wb") as f:
+        pickle.dump(metadata, f)
+
+    print("BM25 data built and saved.")
+
+    return corpus, metadata
 
 
-def create_langchain_docs(df):
+def get_bm25_retriever(corpus, metadata, k=10):
     """
-    Convert a pandas DataFrame into LangChain Document objects for BM25 retrieval.
+    Build a BM25 retriever from tokenized corpus.
 
-    Parameters:
+    Parameters
     ----------
-    df : pandas.DataFrame
-        Input data for document creation.
+    corpus : list of list of str
+        Tokenized documents, where each document is a list of tokens.
+    metadata : list of dict
+        Metadata corresponding to each document.
+    k : int, default=10
+        Number of documents to retrieve.
 
-    Returns:
+    Returns
     -------
-    documents : list of Document
-        LangChain Document objects used for retrieval.
+    BM25Retriever
+        A LangChain BM25 retriever for keyword-based search.
     """
-    documents = [
+    docs = [
         Document(
-            page_content=" ".join(row["tokens"]),
-            metadata={
-                "product_title": row["product_title"],
-                "review_title": row["review_title"],
-                "review_text": row["text"],
-                "price": row.get("price"),
-                "rating": row.get("rating"),
-                "average_rating": row.get("average_rating"),
-                "rating_number": row.get("rating_number"),
-                "features": row.get("features"),
-                "description": row.get("description"),
-                "categories": row.get("categories"),
-            },
+            page_content=" ".join(tokens),
+            metadata=metadata[i] 
         )
-        for _, row in df.iterrows()
+        for i, tokens in enumerate(corpus)
     ]
 
-    return documents
-
-
-def save_documents(documents, path="data/processed/bm25_docs.pkl"):
-    """
-    Save LangChain documents to disk.
-    """
-    with open(path, "wb") as f:
-        pickle.dump(documents, f)
-
-def load_documents(path="data/processed/bm25_docs.pkl"):
-    """
-    Load LangChain documents from disk.
-    """
-    if not os.path.exists(path):
-        return None
-
-    with open(path, "rb") as f:
-        return pickle.load(f)
-
-def build_bm25_retriever(documents, k=10):
-    """
-    Build a BM25 retriever from a list of LangChain documents.
-
-    Parameters:
-    ----------
-    documents : list of Document
-        Input documents used for BM25 indexing and retrieval.
-    k : int
-        Number of top results to return during retrieval.
-
-    Returns:
-    -------
-    retriever : BM25Retriever
-        Configured BM25 retriever instance.
-    """
-    if not documents:
-        raise ValueError("No documents found.")
-
-    retriever = BM25Retriever.from_documents(documents)
+    retriever = BM25Retriever.from_documents(docs)
     retriever.k = k
 
     return retriever
-
-
-def save_bm25_retriever(retriever, path="data/processed/bm25_retriever.pkl"):
-    """
-    Save BM25 retriever to disk.
-    """
-    with open(path, "wb") as f:
-        pickle.dump(retriever, f)
-
-
-def load_bm25_retriever(path="data/processed/bm25_retriever.pkl"):
-    """
-    Load BM25 retriever from disk.
-    """
-    if not os.path.exists(path):
-        return None
-
-    with open(path, "rb") as f:
-        return pickle.load(f)
 
 
 def bm25_search(retriever, query, top_k=5):
@@ -209,12 +192,13 @@ def bm25_search(retriever, query, top_k=5):
         - rank : int
         - product_title : str
         - review_text : str
-        - rating : int or None
         - average_rating : float or None
         - rating_number : int or None
         - price : str
         - score : float
     """
+
+    
     tokenized_query = simple_tokenize(query)
     scores = retriever.vectorizer.get_scores(tokenized_query)
     ranked_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
@@ -222,18 +206,18 @@ def bm25_search(retriever, query, top_k=5):
 
     results = []
 
-    for rank, (doc_idx, doc) in enumerate(zip(ranked_indices, docs), 1):
+    for rank, idx in enumerate(ranked_indices, 1):
+        doc = retriever.docs[idx]
         m = doc.metadata
 
         results.append({
             "rank": rank,
             "product_title": m.get("product_title"),
             "review_text": m.get("review_text"),
-            "rating": int(m.get("rating")) if pd.notna(m.get("rating")) else None,
-            "average_rating": float(m.get("average_rating")) if pd.notna(m.get("average_rating")) else None,
+            "average_rating": round(float(m.get("average_rating")), 1) if pd.notna(m.get("average_rating")) else None,
             "rating_number": int(m.get("rating_number")) if pd.notna(m.get("rating_number")) else None,
             "price": str(m.get("price")) if pd.notna(m.get("price")) else "N/A",
-            "score": round(float(scores[doc_idx]), 3),
+            "score": round(float(scores[idx]), 3),
         })
 
     return results

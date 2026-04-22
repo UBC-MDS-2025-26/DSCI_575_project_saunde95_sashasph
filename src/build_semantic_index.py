@@ -19,7 +19,7 @@ def main():
     is skipped. Otherwise, the vector store is created and saved locally for
     faster loading in future runs.
     """
-    data_path = "data/processed/processed_data_sample.parquet"
+    data_path = "data/processed/processed_scaled_sample.parquet"
     store_path = "data/processed/faiss_store"
 
     if os.path.exists(store_path):

@@ -52,7 +52,7 @@ def clean_text(value):
     return text
 
 
-def load_documents(path="data/processed/processed_data_sample.parquet"):
+def load_documents(path="data/processed/processed_scaled_sample.parquet"):
     """
     Load the dataset and create a combined text column for semantic retrieval.
 
@@ -62,7 +62,7 @@ def load_documents(path="data/processed/processed_data_sample.parquet"):
 
     Parameters
     ----------
-    path : str, default="data/processed/processed_data_sample.parquet"
+    path : str, default="data/processed/processed_scaled_sample.parquet"
         Path to the processed parquet file.
 
     Returns
@@ -75,7 +75,7 @@ def load_documents(path="data/processed/processed_data_sample.parquet"):
     df["combined_text"] = (
         "Product title: " + df["product_title"].fillna("").astype(str) + ". "
         + "Review title: " + df["review_title"].fillna("").astype(str) + ". "
-        + "Review text: " + df["text"].fillna("").astype(str) + ". "
+        + "Review text: " + df["review_text"].fillna("").astype(str) + ". "
         + "Features: " + df["features"].fillna("").astype(str) + ". "
         + "Description: " + df["description"].fillna("").astype(str) + ". "
         + "Categories: " + df["categories"].fillna("").astype(str)
@@ -111,11 +111,10 @@ def make_langchain_documents(df):
                 metadata={
                     "product_title": clean_text(row["product_title"]),
                     "review_title": clean_text(row["review_title"]),
-                    "review_text": clean_text(row["text"]),
+                    "review_text": clean_text(row["review_text"]),
                     "features": clean_text(row["features"]),
                     "description": clean_text(row["description"]),
                     "categories": clean_text(row["categories"]),
-                    "rating": int(row["rating"]) if pd.notna(row["rating"]) else None,
                     "average_rating": float(row["average_rating"]) if pd.notna(row["average_rating"]) else None,
                     "rating_number": int(row["rating_number"]) if pd.notna(row["rating_number"]) else None,
                     "price": str(row["price"]) if pd.notna(row["price"]) else "N/A",
@@ -127,7 +126,7 @@ def make_langchain_documents(df):
 
 
 def get_or_build_vectorstore(
-    data_path="data/processed/processed_data_sample.parquet",
+    data_path="data/processed/processed_scaled_sample.parquet",
     store_path="data/processed/faiss_store",
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 ):
@@ -141,7 +140,7 @@ def get_or_build_vectorstore(
 
     Parameters
     ----------
-    data_path : str, default="data/processed/processed_data_sample.parquet"
+    data_path : str, default="data/processed/processed_scaled_sample.parquet"
         Path to the processed parquet file.
     store_path : str, default="data/processed/faiss_store"
         Folder path where the FAISS vector store should be saved or loaded from.
@@ -199,7 +198,6 @@ def semantic_search(query, vectorstore, top_k=5):
         - rank : int
         - product_title : str
         - review_text : str
-        - rating : int or None
         - average_rating : float or None
         - rating_number : int or None
         - price : str
@@ -215,8 +213,7 @@ def semantic_search(query, vectorstore, top_k=5):
             "rank": rank,
             "product_title": doc.metadata.get("product_title", ""),
             "review_text": doc.metadata.get("review_text", ""),
-            "rating": doc.metadata.get("rating"),
-            "average_rating": doc.metadata.get("average_rating"),
+            "average_rating": round(doc.metadata.get("average_rating"), 1),
             "rating_number": doc.metadata.get("rating_number"),
             "price": doc.metadata.get("price", "N/A"),
             "score": round(score, 3),
