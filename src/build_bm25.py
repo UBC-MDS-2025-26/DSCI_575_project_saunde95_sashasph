@@ -24,7 +24,7 @@ def main():
     meta_path = "data/processed/bm25_store/bm25_metadata.pkl"
 
     if os.path.exists(corpus_path) and os.path.exists(meta_path):
-        print("Loaded BM25 index.")
+        print("Loaded BM25 corpus and metadata.")
         return
     
     corpus, metadata = get_or_build_bm25_data(
@@ -33,7 +33,7 @@ def main():
         meta_path=meta_path
     )
 
-    print("BM25 index built and saved.")
+    print("BM25 corpus and metadata built and saved.")
 
 
 if __name__ == "__main__":
