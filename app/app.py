@@ -26,9 +26,7 @@ from src.hybrid import (
 from src.rag_pipeline import get_llm, run_semantic_rag
 from src.rag_pipeline_hybrid import run_hybrid_rag
 
-
-DATA_PATH = "data/processed/processed_scaled_sample.parquet"
-FAISS_STORE_PATH = "data/processed/faiss_store"
+from src.config import DATA_PATH, FAISS_STORE_PATH
 
 vectorstore = get_or_build_vectorstore(data_path=DATA_PATH, store_path=FAISS_STORE_PATH)
 semantic = get_semantic_retriever(vectorstore, top_k=5)
@@ -46,9 +44,11 @@ def truncate_text(text, max_chars=200):
     return text if len(text) <= max_chars else text[:max_chars] + "..."
 
 def display_text(val):
+    """Return a display-friendly string, using 'N/A' for missing values."""
     return "N/A" if val is None else str(val)
 
 def rating_to_stars(rating):
+    """Convert a numeric rating into a star display for the app."""
     if rating is None:
         return "N/A"
 
@@ -206,6 +206,7 @@ def server(input, output, session):
     @reactive.calc
     @reactive.event(input.search_btn)
     def search_results():
+        """Run the selected retrieval pipeline and return app-ready results."""
         query = input.query().strip()
         mode = input.mode()
         
@@ -269,6 +270,7 @@ def server(input, output, session):
         
     @render.ui
     def method_ui_container():
+            """Render the method selector based on the current app mode."""
             mode = input.mode()
         
             if mode == "Search Only":
@@ -303,6 +305,7 @@ def server(input, output, session):
     @output
     @render.ui
     def results_ui():
+        """Render search or RAG results in the main app panel."""
         res = search_results()
         if not res:
             return ui.p("Enter a query to begin.", style="color: white;")
