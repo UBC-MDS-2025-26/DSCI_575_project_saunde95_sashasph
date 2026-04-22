@@ -25,7 +25,7 @@ from src.hybrid import (
 )
 from src.rag_pipeline import get_llm, run_semantic_rag
 from src.rag_pipeline_hybrid import run_hybrid_rag
-
+from src.semantic import clean_text
 from src.config import DATA_PATH, FAISS_STORE_PATH
 
 vectorstore = get_or_build_vectorstore(data_path=DATA_PATH, store_path=FAISS_STORE_PATH)
@@ -360,7 +360,10 @@ def server(input, output, session):
             for item in items_to_show:
                 title = item.metadata.get("product_title", "Product Details")
                 average_rating = item.metadata.get("average_rating")
-                review_text = item.page_content
+                review_text = clean_text(
+                    item.metadata.get("review_text") 
+                    or item.page_content
+                    )
 
                 output_elements.append(
                     ui.card(
