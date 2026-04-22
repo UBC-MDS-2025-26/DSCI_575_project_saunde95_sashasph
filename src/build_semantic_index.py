@@ -11,7 +11,6 @@ from src.semantic import get_or_build_vectorstore
 from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-
 def main():
     """
     Build the semantic vector store if it does not already exist.
@@ -23,8 +22,8 @@ def main():
     data_path = PROJECT_ROOT / "data" / "processed" / "processed_scaled_sample.parquet"
     store_path = PROJECT_ROOT / "data" / "processed" / "faiss_store"
 
-    if os.path.exists(store_path):
-        print("Loaded semantic vector store.")
+    if store_path.exists():
+        print("Semantic vector store already exists. Skipping rebuild.")
         return
 
     get_or_build_vectorstore(

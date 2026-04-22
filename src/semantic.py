@@ -1,14 +1,15 @@
 """
 semantic.py
 
-This module implements a semantic search system using LangChain
-HuggingFace embeddings and a FAISS vector store.
+This module implements a semantic search system using LangChain,
+HuggingFace embeddings, and a FAISS vector store.
 
 It includes functions to:
 - load and preprocess data from a parquet file
 - clean text fields for retrieval and display
 - convert rows into LangChain Document objects
-- build or load a saved FAISS vector store
+- build or load a saved FAISS vector store using normalized embeddings
+  and cosine-style similarity
 - perform semantic search and return ranked, structured results
   with product and review metadata
 - convert the vector store into a semantic retriever for RAG
@@ -17,12 +18,13 @@ This module is used by the app and other project components to retrieve
 and display relevant documents based on semantic similarity.
 """
 
-import os
+from pathlib import Path
 import re
 import pandas as pd
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores.utils import DistanceStrategy
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "processed_scaled_sample.parquet"
@@ -129,8 +131,8 @@ def make_langchain_documents(df):
 
 
 def get_or_build_vectorstore(
-    data_path="data/processed/processed_scaled_sample.parquet",
-    store_path="data/processed/faiss_store",
+    data_path=DEFAULT_DATA_PATH,
+    store_path=DEFAULT_STORE_PATH,
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 ):
     """
@@ -140,12 +142,15 @@ def get_or_build_vectorstore(
     runs. If the vector store folder is already present, it is loaded from
     disk. Otherwise, the function loads the data, converts it into LangChain
     documents, builds a FAISS vector store, saves it locally, and returns it.
+    
+    This version uses normalized embeddings and cosine-style similarity
+    for retrieval.
 
     Parameters
     ----------
-    data_path : str, default="data/processed/processed_scaled_sample.parquet"
+    data_path : pathlib.Path or str, default=DEFAULT_DATA_PATH
         Path to the processed parquet file.
-    store_path : str, default="data/processed/faiss_store"
+    store_path : pathlib.Path or str, default=DEFAULT_STORE_PATH
         Folder path where the FAISS vector store should be saved or loaded from.
     model_name : str, default="sentence-transformers/all-MiniLM-L6-v2"
         Name of the embedding model to use.
@@ -155,10 +160,15 @@ def get_or_build_vectorstore(
     FAISS
         Loaded or newly built LangChain FAISS vector store.
     """
-    embeddings = HuggingFaceEmbeddings(model_name=model_name)
+    embeddings = HuggingFaceEmbeddings(
+        model_name=model_name,
+        encode_kwargs={"normalize_embeddings": True}
+    )
+    
+    store_path = Path(store_path)
 
-    if os.path.exists(store_path):
-        print("Loaded semantic vector store.")
+    if store_path.exists():
+        print("Semantic vector store already exists. Loading from disk.")
         return FAISS.load_local(
             store_path,
             embeddings,
@@ -169,7 +179,12 @@ def get_or_build_vectorstore(
 
     df = load_documents(data_path)
     docs = make_langchain_documents(df)
-    vectorstore = FAISS.from_documents(docs, embeddings)
+
+    vectorstore = FAISS.from_documents(
+        docs,
+        embeddings,
+        distance_strategy=DistanceStrategy.COSINE
+    )
     vectorstore.save_local(store_path)
 
     print("Semantic setup complete!")
@@ -180,10 +195,9 @@ def semantic_search(query, vectorstore, top_k=5):
     """
     Perform semantic search and return structured, app-friendly results.
 
-    The vector store retrieves the top-k most similar documents for the query.
-    Each returned document is paired with its FAISS distance score. The
-    distance is converted to a normalized similarity-style score using
-    1 / (1 + distance), so that higher scores indicate more similar results.
+    The vector store retrieves the top-k most relevant documents for the query.
+    Each returned document is paired with a normalized relevance score
+    from the vector store (0–1), where higher scores indicate more relevant results.
 
     Parameters
     ----------
@@ -206,12 +220,10 @@ def semantic_search(query, vectorstore, top_k=5):
         - price : str
         - score : float
     """
-    docs_with_scores = vectorstore.similarity_search_with_score(query, k=top_k)
+    docs_with_scores = vectorstore.similarity_search_with_relevance_scores(query, k=top_k)
 
     results = []
-    for rank, (doc, distance) in enumerate(docs_with_scores, start=1):
-        score = 1 / (1 + float(distance))
-
+    for rank, (doc, score) in enumerate(docs_with_scores, start=1):
         results.append({
             "rank": rank,
             "product_title": doc.metadata.get("product_title", ""),
@@ -219,10 +231,11 @@ def semantic_search(query, vectorstore, top_k=5):
             "average_rating": round(doc.metadata.get("average_rating"), 1),
             "rating_number": doc.metadata.get("rating_number"),
             "price": doc.metadata.get("price", "N/A"),
-            "score": round(score, 3),
+            "score": round(float(score), 3),
         })
 
     return results
+    
 
 def get_semantic_retriever(vectorstore, top_k=5):
     """
