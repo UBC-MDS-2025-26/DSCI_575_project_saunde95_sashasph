@@ -1,31 +1,36 @@
-# Milestone 3
+# Final Discussion
 
----
+## Step 1: Improve Your Workflow
 
-## 1.1 Scale the Dataset
+### Dataset Scaling
 
 We examined our parquet dataset (100,000 sampled rows from merged product metadata and reviews) to verify that it contains at least 10,000 unique products. The original unique identifier (`parent_asin`) was dropped after merging, so we used `product_title` as a proxy for product identity. We found that there are 56,852 unique product titles in our sampled dataset. However, we note that `product_title` is not a guaranteed unique identifier, since the same product could be titled differently, so we validated this assumption with two tests.
 
 First, we manually inspected a random sample of 100 unique product titles and found them to be observably distinct products. Then, using semantic similarity, we retrieved the most similar products for a sample of 10 product titles and examined the results. We found that exact matches correspond to the same product, while highly similar titles typically represent distinct variants (e.g., different brands, sizes, or materials), rather than duplicates.
 
-Together, these checks suggest that `product_title` provides a reasonable approximation of product-level uniqueness. Therefore, we conclude that our dataset contains well over 10,000 unique products. Code for this validation is provided in the `milestone3_exploration` notebook. 
+Together, these checks suggest that `product_title` provides a reasonable approximation of product-level uniqueness. Therefore, we conclude that our dataset contains well over 10,000 unique products. Code for this validation is provided in the `milestone3_exploration` notebook.
+
+### LLM Experiment
+
+#### Models Compared
+
+We compared two LLMs with different sizes and capabilities:
+
+- **Model 1:** `llama-3.1-8b-instant`  
+  - Family: LLaMA 3.1  
+  - Size: 8 billion parameters  
+  - Characteristics: Fast, lightweight, and generally strong at following structured prompt instructions.
+
+- **Model 2:** `llama-3.3-70b-versatile`  
+  - Family: LLaMA 3.3  
+  - Size: 70 billion parameters  
+  - Characteristics: Much larger model with stronger reasoning and generation capabilities, expected to better handle complex queries and synthesize information across retrieved documents.
 
 ---
 
-## 1.2 Experiment with the LLM
+#### Prompt Used
 
-### Models Used
-
-Model 1: The original baseline model used for Milestone 2, `llama-3.1-8b-instant`. It is fast, concise, and generally strong at following prompt constraints.
-
-Model 2: We tested a much larger model with stronger reasoning and generation capabilities, `llama-3.3-70b-versatile`. It has 70B vs 8B parameters and is expected to produce more detailed and natural explanations, especially for queries that require synthesizing multiple retrieved documents.
-
----
-
-### Prompt
-
-For both models, we used the same prompt that is currently used in our semantic and hybrid RAG pipelines, copied below for reference. To ensure a fair comparison, both models were run on identical retrieved documents using the semantic retriever.
-
+To ensure a fair comparison, both models were evaluated using the same prompt and identical retrieved context (semantic retriever). The prompt used is shown below:
 
 ```python
 SYSTEM_PROMPT_FINAL = """
@@ -52,10 +57,15 @@ When answering:
 """
 ```
 
----
+#### Results
 
-## Outputs for both models on 5 Queries 
+We evaluated both models on five representative queries ranging from simple keyword-based queries to more complex, intent-based queries. Full outputs for both models are shown below for transparency, using identical retrieved context for each query. Additionally, for reproducibility the code run to generate this output is in the `milestone2_exploration.ipynb` notebook. 
 
+
+##### Outputs for both models on 5 Queries 
+
+```python
+"""
 ====================================================================================================
 QUERY 1: 6-inch ceramic plant pot with drainage hole
 ====================================================================================================
@@ -165,10 +175,10 @@ Considering your requirements, I'd recommend the following plants:
 1. Bloomify Live Sundew Plant Terrarium (price not available) - This plant is a great option as it's described as a "maintenance-free" and "self-sustaining" terrarium, which implies it can thrive with minimal care and watering. It's also suitable for indoor use, but can be kept outside in shady areas.
 2. Unfortunately, I couldn't find other plant options that fit your criteria. The Luffy Coco Philippines Java Fern has received multiple reviews stating it arrived dead, which doesn't inspire confidence in its hardiness or ability to survive with minimal care.
 3. Since I don't have more information on other plants, I would suggest exploring other products on Amazon that specifically mention being "drought-tolerant" or "low-maintenance" to find a plant that fits your needs.
+"""
+```
 
----
-
-## Key Observations
+#### Key Observations
 
 The outputs from the two models show clear structural differences. The baseline model `llama-3.1-8b-instant` consistently produces structured responses, including an opening statement followed by a numbered list of products with bolded titles and a concluding statement. In contrast, the larger model `llama-3.3-70b-versatile` produces responses that are more conversational, with product recommendations embedded within paragraphs rather than listed formally.
 
@@ -180,22 +190,18 @@ The models also differ in how they handle incomplete context. The smaller model 
 
 Overall, these differences are most pronounced for more complex queries. The 8B baseline model prioritizes consistency and structure, while the 70B model prioritizes contextual accuracy and relevance, even when this results in less strictly formatted outputs.
 
----
-
-## Performance Considerations
+#### Performance Considerations
 
 We observed that the 70B model has slightly slower response times (1.2 seconds) compared to the 8B model (0.9 seconds). This highlights a tradeoff between response quality and speed, where larger models provide improved reasoning at the cost of slower inference. However, the difference is not significant enough in this case to outweigh the benefits of the more complex model.
 
----
 
-## Conclusion
+#### Model Selection
 
 Overall, the `llama-3.3-70b-versatile` model produced higher-quality outputs, with stronger reasoning, better handling of incomplete context, and more natural explanations. While the `llama-3.1-8b-instant` model demonstrated faster and more consistent formatting, its tendency to prioritize structure over contextual accuracy resulted in weaker recommendations for more complex queries.
 
 Based on this comparison, we selected the 70B model as the default for our RAG pipeline, as it provides a better balance of accuracy, reasoning, and user-facing response quality. However, we did prefer the structured format of the simpler model’s output for readability, as it is easier to process recommendations when products are clearly separated and highlighted. As a result, we will use the more complex model while refining the prompt to improve output formatting.
 
----
-## Final Optimized Prompt Optimized
+#### Final Prompt Optimized for Selected Model
 
 We refined our final prompt to balance structure, relevance, and usability in an application setting. The final version enforces a clear, numbered format while prioritizing strong matches to the query and avoiding filler or unsupported recommendations. We also guide the model to use review insights for explanation rather than repeating rating statistics, resulting in more natural and informative outputs. These changes improved consistency and reduced irrelevant results, making the responses better suited for a product search interface. We also relaxed the earlier requirement to always return at least three recommendations, as we found that enforcing this constraint often introduced irrelevant or weak matches when the retrieved context was limited.
 
@@ -233,3 +239,21 @@ STYLE GUIDELINES:
 - Avoid duplicate or irrelevant products
 """
 ```
+
+## Step 2: Additional Feature (state which option you chose)
+
+### What You Implemented
+
+- Description of the feature
+- Key results or examples
+  
+## Step 3: Improve Documentation and Code Quality
+
+### Documentation Update
+- Summary of `README` improvements
+
+### Code Quality Changes
+- Summary of cleanups
+
+## Step 4: Cloud Deployment Plan
+(See Step 4 above for required subsections)
