@@ -14,8 +14,8 @@ from src.semantic import (
     semantic_search
 )
 from src.bm25 import (
-    load_documents as load_bm25_docs,
-    load_bm25_retriever,
+    get_or_build_bm25_data,
+    get_bm25_retriever,
     bm25_search
 )
 from src.hybrid import (
@@ -27,15 +27,13 @@ from src.rag_pipeline import get_llm, run_semantic_rag
 from src.rag_pipeline_hybrid import run_hybrid_rag
 
 
-DATA_PATH = "data/processed/processed_data_sample.parquet"
-STORE_PATH = "data/processed/faiss_store"
-DOCS_PATH = "data/processed/bm25_docs.pkl"
-BM25_PATH = "data/processed/bm25_retriever.pkl"
+DATA_PATH = "data/processed/processed_scaled_sample.parquet"
+FAISS_STORE_PATH = "data/processed/faiss_store"
 
-vectorstore = get_or_build_vectorstore(data_path=DATA_PATH, store_path=STORE_PATH)
-docs = load_bm25_docs(DOCS_PATH)
-bm25 = load_bm25_retriever(BM25_PATH)
+vectorstore = get_or_build_vectorstore(data_path=DATA_PATH, store_path=FAISS_STORE_PATH)
 semantic = get_semantic_retriever(vectorstore, top_k=5)
+corpus, metadata = get_or_build_bm25_data(data_path=DATA_PATH)
+bm25 = get_bm25_retriever(corpus, metadata)
 hybrid_retriever = get_hybrid_retriever(semantic, bm25)
 llm = get_llm()
 
@@ -56,14 +54,9 @@ def rating_to_stars(rating):
 
     rating = float(rating)
     full = int(rating)
-    half = (rating - full) >= 0.5
+    empty = 5 - full
 
-    stars = "★" * full
-
-    if half:
-        stars += "⯪" 
-
-    stars += "☆" * (5 - full - (1 if half else 0))
+    stars = "★" * full + "☆" * empty
 
     return ui.span(
         stars,
@@ -363,14 +356,14 @@ def server(input, output, session):
 
             for item in items_to_show:
                 title = item.metadata.get("product_title", "Product Details")
-                rating = item.metadata.get("rating")
+                average_rating = item.metadata.get("average_rating")
                 review_text = item.page_content
 
                 output_elements.append(
                     ui.card(
                         ui.h5(title, style="font-weight: bold;"),
                         ui.p(
-                            "Rating: ", rating_to_stars(rating),
+                            "Average Rating: ", rating_to_stars(average_rating),
                             style="margin-top: -5px; margin-bottom: 5px;"
                         ),
                         ui.p(
@@ -395,7 +388,6 @@ def server(input, output, session):
                     count += 1
                     display_rank = count
 
-                    rating = item.get("rating")
                     average_rating = item.get("average_rating")
                     rating_number = item.get("rating_number")
                     price = item.get("price")
@@ -418,16 +410,11 @@ def server(input, output, session):
                         ui.h5(product_name, style="font-weight: bold;"),
                         
                         ui.p(
-                            f"Average rating: {display_text(average_rating)} | "
-                            f"Number of ratings: {display_text(rating_number)} | "
+                            f"Average Rating: ", rating_to_stars(average_rating),
+                            f" | Number of ratings: {display_text(rating_number)} | "
                             f"Price: {display_text(price)}",
                             style="margin-top: -5px; margin-bottom: -5px; font-size: 1.1rem;"
                         ),
-                        
-                        ui.p(
-                            ui.strong("Rating: "), rating_to_stars(rating),
-                            style="margin-top: -5px; margin-bottom: 8px;"
-                            ),
                         
                         ui.p(
                             truncate_text(item.get("review_text", ""), 200),

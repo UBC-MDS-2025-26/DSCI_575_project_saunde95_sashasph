@@ -1,56 +1,40 @@
 """
 build_bm25.py
 
-Build BM25 search system.
+Build BM25 corpus and metadata store for BM25 search
 
 Run:
-python src/main_bm25.py
+python -m src.build_bm25
 """
-import sys
-from src.bm25 import (
-    load_and_preprocess_data,
-    add_tokens,
-    create_langchain_docs,
-    build_bm25_retriever,
-    bm25_search,
-    save_documents,
-    load_documents,
-    save_bm25_retriever,
-    load_bm25_retriever
-)
+import os
+from src.bm25 import get_or_build_bm25_data
 
 
 def main():
+    """
+    Build BM25 corpus and metadata if not exists, otherwise load existing data.
 
-    data_path = "data/processed/processed_data_sample.parquet"
+    If the saved BM25 store folder is already present, the build step
+    is skipped. Otherwise, the corpus and metadata store is created and saved locally for
+    faster loading in future runs.
+    """
 
-    print("Loading documents...")
-    docs = load_documents()
+    data_path = "data/processed/processed_scaled_sample.parquet"
+    corpus_path = "data/processed/bm25_store/bm25_corpus.pkl"
+    meta_path = "data/processed/bm25_store/bm25_metadata.pkl"
+
+    if os.path.exists(corpus_path) and os.path.exists(meta_path):
+        print("Loaded BM25 corpus and metadata.")
+        return
     
-    if docs is None:
-        print("No saved documents found. Creating documents (this may take a while)...")
-        df = load_and_preprocess_data(data_path)
-        df = add_tokens(df)
-        docs = create_langchain_docs(df)
-        save_documents(docs)
-        print("Documents saved!")
+    corpus, metadata = get_or_build_bm25_data(
+        data_path=data_path,
+        corpus_path=corpus_path,
+        meta_path=meta_path
+    )
 
-    else:
-        print("Loaded documents.")
+    print("BM25 corpus and metadata built and saved.")
 
-    retriever = load_bm25_retriever()
-
-    if retriever is None:
-        print("No saved BM25 retriever found. Building retriever (this may take a while)...")
-
-        retriever = build_bm25_retriever(docs, k=10)
-
-        save_bm25_retriever(retriever)
-
-    else:
-        print("Loaded BM25 retriever.")
-
-    print("BM25 setup complete!")
 
 if __name__ == "__main__":
     main()

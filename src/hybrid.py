@@ -35,7 +35,7 @@ def get_hybrid_retriever(semantic_retriever, bm25_retriever):
 
     ensemble = EnsembleRetriever(
         retrievers=[semantic_retriever, bm25_retriever],
-        weights=[0.6, 0.4] 
+        weights=[0.5, 0.5] 
     )
 
     return ensemble
