@@ -1,14 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
 # Environment variables
 .env
+.venv/
+env/
+venv/
+retrieval-app/
 
 # Raw data (large files, not tracked)
 data/raw/*
+!data/raw/.gitkeep
 
-# Generated indices (FAISS, etc.)
-data/processed/*.index
+# Data artifacts 
+data/processed/*.pkl
+data/processed/faiss_store/
+data/processed/bm25_store/
+
+# Ignore large temp parquet files, but keep the final dataset
+data/processed/*.parquet
+!data/processed/processed_scaled_sample.parquet
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
 
+# Logs
+*.log
+
 # Mac system files
 .DS_Store
+
+# VSCode / IDE
+.vscode/
+.idea/
