@@ -7,8 +7,9 @@ Run:
 python -m src.build_semantic_index
 """
 
-import os
 from src.semantic import get_or_build_vectorstore
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
@@ -19,8 +20,8 @@ def main():
     is skipped. Otherwise, the vector store is created and saved locally for
     faster loading in future runs.
     """
-    data_path = "data/processed/processed_scaled_sample.parquet"
-    store_path = "data/processed/faiss_store"
+    data_path = PROJECT_ROOT / "data" / "processed" / "processed_scaled_sample.parquet"
+    store_path = PROJECT_ROOT / "data" / "processed" / "faiss_store"
 
     if os.path.exists(store_path):
         print("Loaded semantic vector store.")

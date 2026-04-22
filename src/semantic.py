@@ -24,6 +24,9 @@ from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "processed_scaled_sample.parquet"
+DEFAULT_STORE_PATH = PROJECT_ROOT / "data" / "processed" / "faiss_store"
 
 def clean_text(value):
     """
@@ -52,7 +55,7 @@ def clean_text(value):
     return text
 
 
-def load_documents(path="data/processed/processed_scaled_sample.parquet"):
+def load_documents(path=DEFAULT_DATA_PATH):
     """
     Load the dataset and create a combined text column for semantic retrieval.
 
@@ -62,7 +65,7 @@ def load_documents(path="data/processed/processed_scaled_sample.parquet"):
 
     Parameters
     ----------
-    path : str, default="data/processed/processed_scaled_sample.parquet"
+    path : pathlib.Path or str, default=DEFAULT_DATA_PATH
         Path to the processed parquet file.
 
     Returns
