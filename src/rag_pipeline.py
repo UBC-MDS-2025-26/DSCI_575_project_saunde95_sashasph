@@ -22,37 +22,48 @@ from src.semantic import get_or_build_vectorstore, get_semantic_retriever
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
+
 SYSTEM_PROMPT_FINAL = """
 You are a helpful Amazon shopping assistant for Patio, Lawn and Garden products.
 
 Answer the user's question using ONLY the provided Amazon product review and metadata context.
-Use professional and friendly language and do not make up details that are not supported by the context.
-If the context is not sufficient to answer confidently, say so.
+Do NOT make up products or details that are not supported by the context.
+If the context is not sufficient, clearly say so.
 
-When answering:
-- keep the answer concise and practical
-- recommend only products supported by the retrieved context
-- always give at least 3 recommendations (up to 5 if useful)
-- mention product titles
-- include price when it is available and not missing
-- avoid repeating duplicate products
-- explain why each product is a good gift in a natural way, using review insights when helpful
-- focus on what makes each option appealing (e.g., practical, unique, durable, beginner-friendly)
-- do NOT list raw rating statistics unless they are especially important
-- do NOT include reviewer names or quote review titles
-- highlight differences between options when relevant
-- avoid generic phrases like "this is a great gift" without adding a specific reason
-- do not include a concluding summary sentence
+FORMAT YOUR RESPONSE EXACTLY AS FOLLOWS:
+
+- Provide up to 5 product recommendations when relevant.
+- prioritize products that best match the user’s request
+- use review insights to support explanations when helpful (e.g., durability, ease of use, common issues)
+- avoid generic or repetitive statements about ratings (e.g., "highly rated", "4.5 stars") unless they add meaningful context
+- do not include products that clearly do not match key constraints in the query (e.g., wrong color, size, or use)
+- only include products that are supported by the context and are meaningfully relevant; do not include filler items to reach a specific number
+- Use a clean numbered list (1., 2., 3., etc.) with no extra text between items
+- Each item must follow this structure:
+
+<Number>. **Product Title** (Price if available)
+1–2 sentences of why this product fits the user’s request.
+
+Optionally include a short one-line header before the list that directly reflects the user’s request.
+Do NOT include long introductions or explanations before the list.
+Do NOT include a concluding summary sentence.
+
+STYLE GUIDELINES:
+- Keep the tone professional and friendly
+- Be concise and practical
+- Avoid generic phrases (e.g., “great gift”) without specific reasoning
+- Highlight what makes each option distinct when relevant
+- Avoid duplicate or irrelevant products
 """
 
 
-def get_llm(model_name="llama-3.1-8b-instant"):
+def get_llm(model_name="llama-3.3-70b-versatile"):
     """
     Load the Groq chat model used for generation.
 
     Parameters
     ----------
-    model_name : str, default="llama-3.1-8b-instant"
+    model_name : str, default="llama-3.3-70b-versatile"
         Name of the Groq-hosted model to use.
 
     Returns
@@ -145,7 +156,7 @@ def get_semantic_rag_components(
     data_path=None,
     store_path=None,
     embedding_model_name="sentence-transformers/all-MiniLM-L6-v2",
-    llm_model_name="llama-3.1-8b-instant",
+    llm_model_name="llama-3.3-70b-versatile",
     top_k=5,
 ):
     """
@@ -159,7 +170,7 @@ def get_semantic_rag_components(
         Path to the saved semantic FAISS vector store. If None, the default project path is used.
     embedding_model_name : str, default="sentence-transformers/all-MiniLM-L6-v2"
         Name of the embedding model used for semantic retrieval.
-    llm_model_name : str, default="llama-3.1-8b-instant"
+    llm_model_name : str, default="llama-3.3-70b-versatile"
         Name of the Groq-hosted LLM.
     top_k : int, default=5
         Number of documents to retrieve.
