@@ -63,20 +63,20 @@ The dataset is sourced from:
 
 ## Data Processing
 
-The raw review and metadata files are merged using `parent_asin`.
-
-In the final pipeline, we aggregate the dataset at the product level. Each row represents a single product, with multiple reviews combined into a single `review_text` field. This reduces duplicate results during retrieval and allows each document to contain richer product-level information.
+The raw review and metadata files are merged using `parent_asin`. We then sample from the merged review-level dataset and aggregate to one row per product using `parent_asin`. During this step, all review texts associated with a product are concatenated into a single review_text field, while review_title and product-level metadata fields are retained using the first observed value for each product. This reduces duplicate results during retrieval and allows each document to contain richer product-level information.
 
 We retain a subset of fields relevant for both retrieval and result display.
 
 For both BM25 and semantic search, we construct a combined text field by concatenating:
 
-- product title  
-- review title  
-- review text  
-- features  
-- description  
-- categories  
+- `product_title`
+- `review_title` (first review after aggregation)  
+- `review_text` (aggregated) 
+- `features` 
+- `description`  
+- `categories`  
+
+Review-level fields such as individual ratings are removed prior to aggregation to avoid conflicts across multiple reviews for the same product.
 
 In addition to this combined text used for retrieval, the following metadata fields are retained to support result display in the web application:
 
@@ -104,7 +104,7 @@ Additional preprocessing steps are applied depending on the retrieval method:
 
 Due to the large size of the fully merged dataset (~14GB), we construct a scaled dataset of 100,647 product-level rows.
 
-This dataset is created by sampling from the merged dataset after aggregation. While this approach does not guarantee preservation of all underlying distributions, it is expected to retain a representative mix of products, reviews, and categories without introducing systematic bias.
+This dataset is created by sampling from the merged review-level dataset and then aggregating to the product level. While this approach does not guarantee preservation of all underlying distributions, it is expected to retain a representative mix of products, reviews, and categories without introducing systematic bias.
 
 This design choice allows the project to:
 - remain within GitHub file size limits
