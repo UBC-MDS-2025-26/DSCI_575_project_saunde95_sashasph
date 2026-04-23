@@ -312,4 +312,5 @@ For LLM inference, we use an API-based approach (e.g., Groq) rather than a self-
 
 ### Streaming/Updates
 To incorporate new products in production, we can create an automated pipeline that is triggered whenever new product and review data are uploaded to an AWS S3 bucket. The pipeline preprocesses the data, including text cleaning, feature engineering, and aggregation of reviews at the product level. Based on the processed data, the pipeline regenerates the BM25 corpus and metadata, as well as the semantic vector store (FAISS), and saves the updated indexes back to S3 to ensure consistency.
+
 To keep the system up to date, this pipeline can be extended to automatically ingest new product and review data from external sources (e.g., Amazon datasets) on a scheduled basis. The new data is appended to the existing dataset in S3, and the preprocessing and indexing steps are re-run to ensure the dataset and retrieval indexes remain current.
