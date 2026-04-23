@@ -13,9 +13,7 @@ In Milestone 1, we focus on retrieval only (no LLMs), implementing and evaluatin
 
 These two approaches allow us to compare traditional keyword-based retrieval with modern embedding-based methods. The system returns the most relevant products for a given query and supports a user-facing web application.
 
-In Milestone 2, we extend this system into a full Retrieval-Augmented Generation (RAG) pipeline by integrating a large language model (LLM). This allows the system to generate natural language answers grounded in retrieved Amazon product reviews and metadata.
-
-We also introduce a **hybrid retrieval approach**, combining BM25 and semantic search, and update the web application to support both retrieval-only and RAG-based query modes, with options for semantic and hybrid retrieval.
+In Milestone 2, we extend this system into a full Retrieval-Augmented Generation (RAG) pipeline by integrating a large language model (LLM). This allows the system to generate natural language answers grounded in retrieved Amazon product reviews and metadata. We also introduce a **hybrid retrieval approach**, combining BM25 and semantic search, and update the web application to support both retrieval-only and RAG-based query modes, with options for semantic and hybrid retrieval.
 
 In Milestone 3, we scale our dataset to 100,647 product-level documents (one per product) by re-building our parquet file to be aggregated at the product level. Further, we implement a new and improved LLM model with greater reasoning skills and update our code base to improve overall quality. All changes to code quality and more descriptions of what has changed since Milestone 2 can be found in `results/final_discussion.md`. 
 
@@ -40,7 +38,7 @@ In Milestone 3, we scale our dataset to 100,647 product-level documents (one per
 ### Milestone 3
 - Stronger LLM model with improved reasoning ability
 - Scaled dataset to 100,647 product-level documents (one per unique product) with multiple reviews for richer product-level context and improved retrieval quality. 
-
+- Hybrid retriever weighting adjusted to 50% semantic, 50% BM25 as a quality improvement (evaluated and justified in discussion and exploratory notebook).
 ---
 
 ## Dataset
@@ -63,7 +61,7 @@ The dataset is sourced from:
 
 ## Data Processing
 
-The raw review and metadata files are merged using `parent_asin`. We then sample from the merged review-level dataset and aggregate to one row per product using `parent_asin`. During this step, all review texts associated with a product are concatenated into a single review_text field, while review_title and product-level metadata fields are retained using the first observed value for each product. This reduces duplicate results during retrieval and allows each document to contain richer product-level information.
+The raw review and metadata files are merged using `parent_asin`. We then sample from the merged review-level dataset and aggregate to one row per product using `parent_asin`. During this step, all review texts associated with a product are concatenated into a single review_text field, while review_title and product-level metadata fields are retained using the first observed value for each product. This reduces duplicate results during retrieval and allows each document to contain richer product-level information. The code we used to create and save the final parquet file can be found in `milestone2_exploration_step2.ipynb`.
 
 We retain a subset of fields relevant for both retrieval and result display.
 
@@ -170,16 +168,16 @@ Based on these results, we selected **`llama-3.3-70b-versatile`** as the default
 
 #### Prompt Development
 
-We iteratively refined the system prompt to improve response quality, structure, and relevance in an application setting. Early versions of the prompt enforced strict constraints (e.g., always returning at least three recommendations), but this often led to weaker or less relevant results when the retrieved context was limited.
+We iteratively refined the system prompt to improve response quality, structure, and relevance in an application setting. Early versions of the prompt enforced strict constraints (e.g., always returning at least three recommendations), but this often led to weaker or less relevant results when the retrieved context was limited. 
 
 The final prompt was optimized to:
 - prioritize relevance over forcing a fixed number of recommendations  
 - encourage concise, practical responses grounded in retrieved context  
-- use review text and metadata to support recommendations  
+- use review text and metadata to ground recommendations  
 - avoid unsupported claims and unnecessary statistics  
 - improve readability by encouraging clearer separation between product recommendations  
 
-These refinements resulted in more consistent, informative, and user-friendly outputs.
+These refinements resulted in more consistent, informative, and user-friendly outputs. All generated responses are grounded in retrieved review and metadata context, and the model is explicitly instructed to avoid unsupported claims.
 
 The final prompt used in the application is shown below:
 
@@ -232,7 +230,7 @@ We combine the two retrievers using a **weighted ensemble**, where:
 - semantic search contributes 50%  
 - BM25 contributes 50%  
 
-This produces a single ranked list of documents that balances keyword precision with semantic understanding.
+Scores from both methods are combined into a single ranked list of documents, balancing keyword precision with semantic understanding.
 
 ---
 
@@ -347,6 +345,8 @@ This will:
 - generate embeddings using `sentence-transformers/all-MiniLM-L6-v2`
 - build a FAISS vector store using cosine similarity
 - save the vector store to `data/processed/faiss_store/` for reuse
+
+⚠️ Note: Building the semantic index may take several minutes depending on your machine, as it requires generating embeddings for ~100k documents.
 
 These steps only need to be run once. If the saved files already exist, they will be reused.
 
