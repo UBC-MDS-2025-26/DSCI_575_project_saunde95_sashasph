@@ -244,7 +244,23 @@ STYLE GUIDELINES:
 
 ### What We Implemented
 
-We scaled our dataset by increasing the total number of unique products in our dataset sample from 56,852 to 100,647. We improved the quality of the dataset and the knowledge base for the overall retrieval pipeline by replacing the previous parquet file with a new parquet file that is aggregated at the product level and has multiple reviews per product row. Our final parquet file is similar in size to the original file but contains more information, because it has 1.77 times more products and multiple reviews per product - thus maintaining a similar file size while representing more products and richer product-level information.
+We scaled our dataset by increasing the total number of unique products from 56,852 to 101,268. To achieve this, we increased our sample size to 225,000 rows (up from the original 100,000 rows) from the source review and metadata dataset. To ensure the final dataset reached our goal of over 100,000 unique products, we validated the count using parent_asin, the unique identifier, rather than relying solely on product titles, which may be missing or incomplete.
+
+We improved the quality of the dataset and the knowledge base for the overall retrieval pipeline by replacing the previous parquet file with a new parquet file that is aggregated at the product level and has multiple reviews per product row. Our final parquet file is similar in size to the original file but contains more information, because it has 1.78 times more products and multiple reviews per product - thus maintaining a similar file size while representing more products and richer product-level information. 
+
+```python
+review_title      142083
+text              211492
+parent_asin       101268
+product_title     100647
+average_rating        41
+rating_number       5561
+features           86453
+description        52345
+price               9570
+categories           756
+dtype: int64
+```
 
 ### Key Changes
 
@@ -258,6 +274,111 @@ We scaled our dataset by increasing the total number of unique products in our d
 - Reduced redundancy in retrieval results by eliminating duplicate products appearing multiple times
 - Improved relevance of retrieved documents, especially for semantic and hybrid search
 - Maintained reasonable build, run, and query performance despite increased dataset size
+
+### Reference Code
+```python
+# Load the review data
+reviews_df = pd.read_json(main_file, lines=True)
+# Load the meta data
+meta_df = pd.read_json(meta_file, lines=True)
+# Drop columns
+reviews_df.drop(
+    columns=['images', 'asin', 'user_id', 'rating',
+             'timestamp', 'helpful_vote', 'verified_purchase'
+             ],
+    inplace=True
+)
+meta_df.drop(
+    columns=['main_category', 'images', 
+             'videos', 'store', 'details',
+             'bought_together', 'subtitle', 
+             'author'
+             ],
+    inplace=True
+)
+# Rename columns
+reviews_df.rename(
+    columns={
+        "title": "review_title"
+    },
+    inplace=True
+)
+
+meta_df.rename(
+    columns={
+        "title": "product_title"
+    },
+    inplace=True
+)
+# Convert columns with lists of text to simple strings rather than lists 
+def flatten_to_text(x):
+    if isinstance(x, list):
+        return " ".join(str(item) for item in x if pd.notna(item))
+    if pd.isna(x):
+        return ""
+    return str(x)
+
+for col in ["features", "description", "categories"]:
+    meta_df[col] = meta_df[col].apply(flatten_to_text)
+
+# Check Result to ensure it worked properly
+meta_df[["features", "description", "categories"]].head()
+# Merge the review data and metadata using "parent_asin"
+merged_df = pd.merge(
+    reviews_df, 
+    meta_df, 
+    on='parent_asin', 
+    how='inner'
+)
+
+# Sample rows from the fully merged dataframe 
+scaled_sample = merged_df.sample(n=225000, random_state=42)
+
+# Checking whether the scaled sample has more than 100k products
+scaled_sample.nunique()
+
+# Aggregate reviews at the product level using parent_asin
+scaled_sample = (
+    scaled_sample
+    .groupby("parent_asin", as_index=False)
+    .agg({
+        "review_title": "first",
+        "product_title": "first",
+        "average_rating": "first",
+        "rating_number": "first",
+        "features": "first",
+        "description": "first",
+        "price": "first",
+        "categories": "first",
+        "text": list
+    })
+)
+
+# Combine list of review texts into a single string per product
+scaled_sample["review_text"] = scaled_sample["text"].apply(
+    lambda x: " ".join([str(i) for i in x if isinstance(i, str)])
+)
+
+# Drop raw text and parent_asin 
+scaled_sample = scaled_sample.drop(columns=['text', 'parent_asin'])
+
+# Optimize data types to reduce memory usage and improve processing efficiency
+scaled_sample["rating_number"] = pd.to_numeric(scaled_sample["rating_number"], downcast="integer")
+scaled_sample["average_rating"] = pd.to_numeric(scaled_sample["average_rating"], downcast="float")
+scaled_sample["categories"] = scaled_sample["categories"].astype("category")
+
+# Clean and extract numeric values from price column
+scaled_sample["price"] = (
+    scaled_sample["price"]
+    .replace(["—", "–", "", "N/A", "na", "null"], np.nan)
+    .astype(str)
+    .str.extract(r"(\d+\.?\d*)")[0]
+)
+
+# Save scaled sample dataset as a compressed Parquet file
+output_path = OUT_DIR / "processed_scaled_sample.parquet"
+scaled_sample.to_parquet(output_path, index=False, compression="snappy")
+```
   
 ## Step 3: Improve Documentation and Code Quality
 
@@ -273,7 +394,9 @@ We scaled our dataset by increasing the total number of unique products in our d
     - Updated RAG flow diagram to reflect 50/50 hybrid setup with BM25 and semantic search
     - Updated build instructions to clarify reuse of saved BM25 and FAISS artifacts
     - Added and refined Notes section to document known limitations of the RAG pipeline
-    - Improved Reproducibility and Setup section for clarity and ease of use
+    - Improved Reproducibility and Setup section for clarity and ease of use (eg. added note about Semantic vector store build time)
+    - Added Milestone 3 to Project overview, Features, and Evaluation sections for consistency
+    - Added usage instructions and examples to the setup section
 
 
 ### Code Quality Changes
@@ -289,21 +412,29 @@ We made several code quality improvements to make the repository more reproducib
 - updated the semantic pipeline to suppress unnecessary Hugging Face warnings, improving the user experience
 - updated the hybrid retrieval setup to use balanced (50/50) weighting between BM25 and semantic results
 - added and refined `.gitignore` to exclude large artifacts (e.g., FAISS store, BM25 corpus) and environment files, improving repository cleanliness and reproducibility
+- Updated the app.py code so that the presentation of price does not show up as "nan" but instead consistently shows "N/A".  And adjusted the presentation of referenced products in RAG mode so that the review text doesn't include the Product title at the beginning. 
 
 
 ## Step 4: Cloud Deployment Plan
 
-Your plan must address the following:
+Below we summarize our plan for how we would deploy our application with cloud computing.
 
-Data Storage: Where will you store the following?
- - raw data
- - processed data
- - vector index
- - BM25 index
-Compute
- - Where will your app run?
- - How will you handle multiple users (concurrency)?
- - How will you handle LLM inference (API vs hosted model)?
-Streaming/Updates
- - How will you incorporate new products in production?
- - How will your pipeline stay up to date?
+### Data Storage 
+- Raw data: Stored in AWS S3 as the central, durable, and low-cost storage layer for original datasets.
+- Processed data: The aggregated product-level parquet file is also stored in S3 under separate prefixes, allowing for versioning and easier updates as new data is incorporated. S3 is chosen because it provides durable, scalable, and cost-efficient storage for large datasets and retrieval index files.
+- Vector index: Stored in S3 (justified above) as a FAISS store directory containing the FAISS index file. It will be loaded into EC2 memory at startup for low-latency semantic search.
+- BM25 index: The tokenized corpus and associated metadata are also stored in S3 (justified above), in a BM25 store directory, and are loaded into memory on EC2 during startup for fast keyword retrieval.
+
+### Compute
+The application is built using Shiny and runs on a cloud-hosted AWS EC2 instance, which serves the Shiny web interface and executes the full retrieval and RAG pipeline.  Compared to AWS Elastic Beanstalk, EC2 is preferred because it provides greater flexibility and customization, which is important for a Shiny-based application with custom machine learning components.
+
+The EC2 instance hosts the BM25, semantic search, and hybrid retrieval methods, as well as LLM API calls for the RAG system. To ensure efficient performance under concurrent usage, the BM25 index and semantic vector store are stored in AWS S3 and loaded into memory once when the EC2 instance starts. This avoids repeated loading or recomputation for each request and improves response speed. If traffic increases in the future, the system can be scaled to handle higher concurrency by increasing API quotas. In addition, multiple EC2 application instances could be placed behind an Application Load Balancer to distribute traffic and improve availability. This setup can also be combined with Auto Scaling for more automated scaling.
+
+For LLM inference, we use an API-based approach (e.g., Groq) rather than a self-hosted model. This avoids the need to deploy and maintain large language models, significantly reducing infrastructure cost and technical complexity (e.g., GPU requirements). Rate limiting is governed by the LLM API provider’s free-tier usage limits to control cost. Each user query is sent to the LLM API along with retrieved context from BM25 and semantic search. The response is then returned to the Shiny app for display.
+
+### Streaming/Updates
+To incorporate new products and reviews, and keep the system up to date, we use an automated data pipeline that runs on a regular batch schedule (e.g., weekly). On each run, the pipeline ingests newly available product and review data from external sources, stores the raw data in S3, preprocesses the data (including cleaning, feature engineering, and aggregation at the product level), and regenerates the BM25 corpus and metadata as well as the semantic vector store (FAISS). The updated indices are then saved back to S3 to ensure consistency across the system.
+
+In this design, indices are updated via periodic batch re-indexing rather than real-time updates. This approach simplifies the system and avoids the high computational cost of rebuilding indices for each individual update while ensuring consistency of retrieval results.
+
+To prevent these more computationally intensive steps from affecting application performance, the preprocessing and re-indexing pipeline can be run on a separate EC2 instance. This instance processes newly ingested data, rebuilds the retrieval indices, and can be shut down after completion, while the main application instance continues to serve user requests.
