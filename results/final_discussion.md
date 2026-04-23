@@ -30,7 +30,7 @@ We compared two LLMs with different sizes and capabilities:
 
 #### Prompt Used
 
-To ensure a fair comparison, both models were evaluated using the same prompt and identical retrieved context (semantic retriever). The prompt used is shown below:
+To ensure a fair comparison, both models were evaluated using the same prompt and identical retrieved context (semantic retriever). The following prompt was used for initial comparison and was later refined (see final prompt below).
 
 ```python
 SYSTEM_PROMPT_FINAL = """
@@ -178,7 +178,7 @@ Considering your requirements, I'd recommend the following plants:
 """
 ```
 
-#### Key Observations
+#### Discussion and Key Observations
 
 The outputs from the two models show clear structural differences. The baseline model `llama-3.1-8b-instant` consistently produces structured responses, including an opening statement followed by a numbered list of products with bolded titles and a concluding statement. In contrast, the larger model `llama-3.3-70b-versatile` produces responses that are more conversational, with product recommendations embedded within paragraphs rather than listed formally.
 
@@ -240,20 +240,70 @@ STYLE GUIDELINES:
 """
 ```
 
-## Step 2: Additional Feature (state which option you chose)
+## Step 2: Additional Feature (Option 3: Scale to $\geq$ 100k Products)
 
-### What You Implemented
+### What We Implemented
 
-- Description of the feature
-- Key results or examples
+We scaled our dataset by increasing the total number of unique products in our dataset sample from 56,852 to 100,647. We improved the quality of the dataset and the knowledge base for the overall retrieval pipeline by replacing the previous parquet file with a new parquet file that is aggregated at the product level and has multiple reviews per product row. Our final parquet file is similar in size to the original file but contains more information, because it has 1.77 times more products and multiple reviews per product - thus maintaining a similar file size while representing more products and richer product-level information.
+
+### Key Changes
+
+- Aggregated review-level data into product-level documents, combining multiple reviews into a single `review_text` field per product, and saved as a parquet file
+- Updated both semantic and BM25 pipelines to use the scaled dataset (`processed_scaled_sample.parquet`)
+- Incorporated TA feedback and refactored the BM25 pipeline to save the tokenized corpus and metadata instead of a serialized retriever, improving reproducibility and making the pipeline more robust and maintainable at scale by separating preprocessing from retrieval construction
+- Rebuilt both the FAISS vector store and BM25 corpus and metadata using the scaled dataset to enable efficient retrieval over a significantly larger set of product-level documents
+
+### Key Results
+
+- Reduced redundancy in retrieval results by eliminating duplicate products appearing multiple times
+- Improved relevance of retrieved documents, especially for semantic and hybrid search
+- Maintained reasonable build, run, and query performance despite increased dataset size
   
 ## Step 3: Improve Documentation and Code Quality
 
 ### Documentation Update
-- Summary of `README` improvements
+
+- READ ME Updates: 
+    - Updated Data Processing section to reflect aggregation from review-level to product-level documents, where each row represents a single product with multiple reviews combined into a `review_text` field
+    - Updated dataset description to reflect scaling to 100,647 product-level documents and clarified sampling after aggregation
+    - Updated BM25 build instructions to reflect the new corpus and metadata storage 
+    - Updated Semantic Search explanation to reflect updated semantic scoring function with normalized embeddings and cosine similarity
+    - Updated Retrieval Methods section to ensure descriptions accurately reflect implemented pipelines
+    - Updated LLM model and prompt description to reflect the change from `llama-3.1-8b-instant` to `llama-3.3-70b-versatile` and the optimized prompt (as discussed above in section LLM Experiment)
+    - Updated RAG flow diagram to reflect 50/50 hybrid setup with BM25 and semantic search
+    - Updated build instructions to clarify reuse of saved BM25 and FAISS artifacts
+    - Added and refined Notes section to document known limitations of the RAG pipeline
+    - Improved Reproducibility and Setup section for clarity and ease of use
+
 
 ### Code Quality Changes
-- Summary of cleanups
+
+We made several code quality improvements to make the repository more reproducible, maintainable, and consistent:
+
+- removed hardcoded file paths and replaced them with shared configuration variables using `pathlib.Path`
+- centralized key project constants such as data paths and model names in `src/config.py`
+- updated semantic search to use cosine similarity with normalized embeddings, addressing TA feedback and improving the consistency and interpretability of similarity scores
+- removed unused variables and outdated code
+- added or updated function docstrings across the codebase
+- refactored the BM25 pipeline to store a tokenized corpus and metadata instead of a serialized retriever, addressing TA feedback and improving reproducibility
+- updated the semantic pipeline to suppress unnecessary Hugging Face warnings, improving the user experience
+- updated the hybrid retrieval setup to use balanced (50/50) weighting between BM25 and semantic results
+- added and refined `.gitignore` to exclude large artifacts (e.g., FAISS store, BM25 corpus) and environment files, improving repository cleanliness and reproducibility
+
 
 ## Step 4: Cloud Deployment Plan
-(See Step 4 above for required subsections)
+
+Your plan must address the following:
+
+Data Storage: Where will you store the following?
+ - raw data
+ - processed data
+ - vector index
+ - BM25 index
+Compute
+ - Where will your app run?
+ - How will you handle multiple users (concurrency)?
+ - How will you handle LLM inference (API vs hosted model)?
+Streaming/Updates
+ - How will you incorporate new products in production?
+ - How will your pipeline stay up to date?
