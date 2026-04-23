@@ -8,7 +8,7 @@ python -m src.build_bm25
 """
 import os
 from src.bm25 import get_or_build_bm25_data
-
+from src.config import DATA_PATH, BM25_CORPUS_PATH, BM25_META_PATH
 
 def main():
     """
@@ -19,15 +19,15 @@ def main():
     faster loading in future runs.
     """
 
-    data_path = "data/processed/processed_scaled_sample.parquet"
-    corpus_path = "data/processed/bm25_store/bm25_corpus.pkl"
-    meta_path = "data/processed/bm25_store/bm25_metadata.pkl"
-
+    data_path = DATA_PATH
+    corpus_path = BM25_CORPUS_PATH
+    meta_path = BM25_META_PATH
+    
     if os.path.exists(corpus_path) and os.path.exists(meta_path):
         print("Loaded BM25 corpus and metadata.")
         return
     
-    corpus, metadata = get_or_build_bm25_data(
+    get_or_build_bm25_data(
         data_path=data_path,
         corpus_path=corpus_path,
         meta_path=meta_path

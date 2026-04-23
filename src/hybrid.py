@@ -67,7 +67,6 @@ def hybrid_search(query, hybrid_retriever, top_k=3):
             "rank": rank,
             "product_title": doc.metadata.get("product_title", ""),
             "review_text": doc.metadata.get("review_text", ""),
-            "rating": doc.metadata.get("rating"),
             "average_rating": doc.metadata.get("average_rating"),
             "rating_number": doc.metadata.get("rating_number"),
             "price": doc.metadata.get("price", "N/A"),

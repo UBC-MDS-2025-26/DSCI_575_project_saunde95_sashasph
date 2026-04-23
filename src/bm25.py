@@ -9,7 +9,7 @@ It includes functions to:
 - clean and normalize text fields for keyword-based retrieval
 - tokenize text for BM25-based retrieval
 - build or load a saved BM25 corpus and metadata store
-- build a BM25 retriever for keyword-base search
+- build a BM25 retriever for keyword-based search
 - perform ranked keyword search and return structured results
   with product and review metadata
 
@@ -23,16 +23,16 @@ import pickle
 import pandas as pd
 from langchain_core.documents import Document
 from langchain_community.retrievers import BM25Retriever
+from src.config import DATA_PATH, BM25_CORPUS_PATH, BM25_META_PATH
 
 
-
-def load_and_preprocess_data(path="data/processed/processed_scaled_sample.parquet"):
+def load_and_preprocess_data(path=DATA_PATH):
     """
     Load dataset and create combined text for BM25 retrieval.
 
     Parameters:
     ----------
-    path : str
+    path : str or pathlib.Path, default=DATA_PATH
         Path to the processed parquet file.
 
     Returns:
@@ -72,12 +72,12 @@ def simple_tokenize(text):
         Tokenized words from input text.
     """
     text = text.lower()
-    text = re.sub(r"[^a-z0-9\s-]", "", text)   
+    text = re.sub(r"[^a-z0-9\s-]", "", text)
     return text.split()
 
-def get_or_build_bm25_data(data_path="data/processed/processed_scaled_sample.parquet",
-                           corpus_path="data/processed/bm25_store/bm25_corpus.pkl",
-                           meta_path="data/processed/bm25_store/bm25_metadata.pkl"):
+def get_or_build_bm25_data(data_path=DATA_PATH,
+                           corpus_path=BM25_CORPUS_PATH,
+                           meta_path=BM25_META_PATH):
     """
     Build or load BM25 corpus and metadata.
 
@@ -87,11 +87,11 @@ def get_or_build_bm25_data(data_path="data/processed/processed_scaled_sample.par
 
     Parameters
     ----------
-    data_path : str, default="data/processed/processed_scaled_sample.parquet"
+    data_path : str or pathlib.Path, default=DATA_PATH
         Path to the processed parquet dataset.
-    corpus_path : str, default="data/processed/bm25_store/bm25_corpus.pkl"
+    corpus_path : str or pathlib.Path, default=BM25_CORPUS_PATH
         File path where the tokenized corpus is saved/loaded.
-    meta_path : str, default="data/processed/bm25_store/bm25_metadata.pkl"
+    meta_path : str or pathlib.Path, default=BM25_META_PATH
         File path where metadata is saved/loaded.
 
     Returns
@@ -202,7 +202,6 @@ def bm25_search(retriever, query, top_k=5):
     tokenized_query = simple_tokenize(query)
     scores = retriever.vectorizer.get_scores(tokenized_query)
     ranked_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
-    docs = [retriever.docs[i] for i in ranked_indices]
 
     results = []
 
@@ -221,4 +220,3 @@ def bm25_search(retriever, query, top_k=5):
         })
 
     return results
-
