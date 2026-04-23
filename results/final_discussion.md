@@ -396,6 +396,7 @@ scaled_sample.to_parquet(output_path, index=False, compression="snappy")
     - Added and refined Notes section to document known limitations of the RAG pipeline
     - Improved Reproducibility and Setup section for clarity and ease of use (eg. added note about Semantic vector store build time)
     - Added Milestone 3 to Project overview, Features, and Evaluation sections for consistency
+    - Added usage instructions and examples to the setup section
 
 
 ### Code Quality Changes
