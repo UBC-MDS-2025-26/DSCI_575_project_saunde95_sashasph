@@ -411,7 +411,7 @@ We made several code quality improvements to make the repository more reproducib
 - updated the semantic pipeline to suppress unnecessary Hugging Face warnings, improving the user experience
 - updated the hybrid retrieval setup to use balanced (50/50) weighting between BM25 and semantic results
 - added and refined `.gitignore` to exclude large artifacts (e.g., FAISS store, BM25 corpus) and environment files, improving repository cleanliness and reproducibility
-- Updated the app.py code so that the presentation of price does not show up as "nan" but instead consistently shows "N/A".  And adjusted the presentation of referened products in RAG mode so that the review text doesn't include the Product title at the beginning. 
+- Updated the app.py code so that the presentation of price does not show up as "nan" but instead consistently shows "N/A".  And adjusted the presentation of referenced products in RAG mode so that the review text doesn't include the Product title at the beginning. 
 
 
 ## Step 4: Cloud Deployment Plan
