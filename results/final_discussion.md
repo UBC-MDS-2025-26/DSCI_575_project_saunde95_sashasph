@@ -246,7 +246,7 @@ STYLE GUIDELINES:
 
 We scaled our dataset by increasing the total number of unique products from 56,852 to 101,268. To achieve this, we increased our sample size to 225,000 rows (up from the original 100,000 rows) from the source review and metadata dataset. To ensure the final dataset reached our goal of over 100,000 unique products, we validated the count using parent_asin, the unique identifier, rather than relying solely on product titles, which may be missing or incomplete.
 
-We improved the quality of the dataset and the knowledge base for the overall retrieval pipeline by replacing the previous parquet file with a new parquet file that is aggregated at the product level and has multiple reviews per product row. Our final parquet file is similar in size to the original file but contains more information, because it has 1.78 times more products and multiple reviews per product - thus maintaining a similar file size while representing more products and richer product-level information. check grammar
+We improved the quality of the dataset and the knowledge base for the overall retrieval pipeline by replacing the previous parquet file with a new parquet file that is aggregated at the product level and has multiple reviews per product row. Our final parquet file is similar in size to the original file but contains more information, because it has 1.78 times more products and multiple reviews per product - thus maintaining a similar file size while representing more products and richer product-level information. 
 
 ```python
 review_title      142083
@@ -394,7 +394,8 @@ scaled_sample.to_parquet(output_path, index=False, compression="snappy")
     - Updated RAG flow diagram to reflect 50/50 hybrid setup with BM25 and semantic search
     - Updated build instructions to clarify reuse of saved BM25 and FAISS artifacts
     - Added and refined Notes section to document known limitations of the RAG pipeline
-    - Improved Reproducibility and Setup section for clarity and ease of use
+    - Improved Reproducibility and Setup section for clarity and ease of use (eg. added note about Semantic vector store build time)
+    - Added Milestone 3 to Project overview, Features, and Evaluation sections for consistency
 
 
 ### Code Quality Changes
@@ -410,6 +411,7 @@ We made several code quality improvements to make the repository more reproducib
 - updated the semantic pipeline to suppress unnecessary Hugging Face warnings, improving the user experience
 - updated the hybrid retrieval setup to use balanced (50/50) weighting between BM25 and semantic results
 - added and refined `.gitignore` to exclude large artifacts (e.g., FAISS store, BM25 corpus) and environment files, improving repository cleanliness and reproducibility
+- Updated the app.py code so that the presentation of price does not show up as "nan" but instead consistently shows "N/A".  And adjusted the presentation of referened products in RAG mode so that the review text doesn't include the Product title at the beginning. 
 
 
 ## Step 4: Cloud Deployment Plan
@@ -417,21 +419,21 @@ We made several code quality improvements to make the repository more reproducib
 Below we summarize our plan for how we would deploy our application with cloud computing.
 
 ### Data Storage 
-- raw data: Stored in AWS S3 as the central, durable, and low-cost storage layer for original datasets.
-- processed data: Processed data (e.g., Parquet files) are also stored in S3 under separate prefixes. 
-- vector index: Stored in S3 as FAISS file and loaded into EC2 memory at startup for low-latency semantic search.
-- BM25 index: The corpus and metadata are also stored in S3 and loaded into memory on EC2 during startup for fast keyword retrieval.
+- Raw data: Stored in AWS S3 as the central, durable, and low-cost storage layer for original datasets.
+- Processed data: The aggregated product-level parquet file is also stored in S3 under separate prefixes, allowing for versioning and easier updates as new data is incorporated. S3 is chosen because it provides durable, scalable, and cost-efficient storage for large datasets and retrieval index files.
+- Vector index: Stored in S3 (justified above) as a FAISS store directory containing the FAISS index file. It will be loaded into EC2 memory at startup for low-latency semantic search.
+- BM25 index: The tokenized corpus and associated metadata are also stored in S3 (justified above), in a BM25 store directory, and are loaded into memory on EC2 during startup for fast keyword retrieval.
 
 ### Compute
-Our app is built using Shiny and will run on a cloud-hosted AWS EC2 instance, which serves the Shiny web interface and executes the full pipeline. Compared to AWS Elastic Beanstalk, EC2 is preferred because it provides greater flexibility and customization, which is important for a Shiny-based application with custom machine learning components.
+The application is built using Shiny and runs on a cloud-hosted AWS EC2 instance, which serves the Shiny web interface and executes the full retrieval and RAG pipeline.  Compared to AWS Elastic Beanstalk, EC2 is preferred because it provides greater flexibility and customization, which is important for a Shiny-based application with custom machine learning components.
 
-The EC2 instance hosts the BM25 retrieval, semantic search, hybrid retrieval, and LLM API calls as part of the RAG system and handles concurrency by processing multiple user requests independently. Users can access the application through a web link and submit queries via the interface, with results returned in real time.
-
-To ensure efficient performance under concurrent usage, the BM25 index and semantic vector store are stored in AWS S3 and loaded into memory once when the EC2 instance starts. This avoids repeated loading or recomputation for each request and improves response speed. If traffic increases in the future, the system can be scaled to handle higher concurrency by increasing API quotas or deploying additional EC2 instances to maintain stable performance.
+The EC2 instance hosts the BM25, semantic search, and hybrid retrieval methods, as well as LLM API calls for the RAG system. To ensure efficient performance under concurrent usage, the BM25 index and semantic vector store are stored in AWS S3 and loaded into memory once when the EC2 instance starts. This avoids repeated loading or recomputation for each request and improves response speed. If traffic increases in the future, the system can be scaled to handle higher concurrency by increasing API quotas. In addition, multiple EC2 application instances could be placed behind an Application Load Balancer to distribute traffic and improve availability. This setup can also be combined with Auto Scaling for more automated scaling.
 
 For LLM inference, we use an API-based approach (e.g., Groq) rather than a self-hosted model. This avoids the need to deploy and maintain large language models, significantly reducing infrastructure cost and technical complexity (e.g., GPU requirements). Rate limiting is governed by the LLM API provider’s free-tier usage limits to control cost. Each user query is sent to the LLM API along with retrieved context from BM25 and semantic search. The response is then returned to the Shiny app for display.
 
 ### Streaming/Updates
-To incorporate new products in production, we can create an automated pipeline that is triggered whenever new product and review data are uploaded to an AWS S3 bucket. The pipeline preprocesses the data, including text cleaning, feature engineering, and aggregation of reviews at the product level. Based on the processed data, the pipeline regenerates the BM25 corpus and metadata, as well as the semantic vector store (FAISS), and saves the updated indexes back to S3 to ensure consistency.
+To incorporate new products and reviews, and keep the system up to date, we use an automated data pipeline that runs on a regular batch schedule (e.g., weekly). On each run, the pipeline ingests newly available product and review data from external sources, stores the raw data in S3, preprocesses the data (including cleaning, feature engineering, and aggregation at the product level), and regenerates the BM25 corpus and metadata as well as the semantic vector store (FAISS). The updated indices are then saved back to S3 to ensure consistency across the system.
 
-To keep the system up to date, this pipeline can be extended to automatically ingest new product and review data from external sources (e.g., Amazon datasets) on a scheduled basis. The new data is appended to the existing dataset in S3, and the preprocessing and indexing steps are re-run to ensure the dataset and retrieval indexes remain current.
+In this design, indices are updated via periodic batch re-indexing rather than real-time updates. This approach simplifies the system and avoids the high computational cost of rebuilding indices for each individual update while ensuring consistency of retrieval results.
+
+To prevent these more computationally intensive steps from affecting application performance, the preprocessing and re-indexing pipeline can be run on a separate EC2 instance. This instance processes newly ingested data, rebuilds the retrieval indices, and can be shut down after completion, while the main application instance continues to serve user requests.
