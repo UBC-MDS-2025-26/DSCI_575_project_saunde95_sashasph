@@ -244,7 +244,23 @@ STYLE GUIDELINES:
 
 ### What We Implemented
 
-We scaled our dataset by increasing the total number of unique products in our dataset sample from 56,852 to 100,647. We improved the quality of the dataset and the knowledge base for the overall retrieval pipeline by replacing the previous parquet file with a new parquet file that is aggregated at the product level and has multiple reviews per product row. Our final parquet file is similar in size to the original file but contains more information, because it has 1.77 times more products and multiple reviews per product - thus maintaining a similar file size while representing more products and richer product-level information.
+We scaled our dataset by increasing the total number of unique products from 56,852 to 101,268. To achieve this, we increased our sample size to 225,000 rows (up from the original 100,000 rows) from the source review and metadata dataset. To ensure the final dataset reached our goal of over 100,000 unique products, we validated the count using parent_asin, the unique identifier, rather than relying solely on product titles, which may be missing or incomplete.
+
+We improved the quality of the dataset and the knowledge base for the overall retrieval pipeline by replacing the previous parquet file with a new parquet file that is aggregated at the product level and has multiple reviews per product row. Our final parquet file is similar in size to the original file but contains more information, because it has 1.78 times more products and multiple reviews per product - thus maintaining a similar file size while representing more products and richer product-level information. check grammar
+
+```python
+review_title      142083
+text              211492
+parent_asin       101268
+product_title     100647
+average_rating        41
+rating_number       5561
+features           86453
+description        52345
+price               9570
+categories           756
+dtype: int64
+```
 
 ### Key Changes
 
@@ -258,6 +274,111 @@ We scaled our dataset by increasing the total number of unique products in our d
 - Reduced redundancy in retrieval results by eliminating duplicate products appearing multiple times
 - Improved relevance of retrieved documents, especially for semantic and hybrid search
 - Maintained reasonable build, run, and query performance despite increased dataset size
+
+### Reference Code
+```python
+# Load the review data
+reviews_df = pd.read_json(main_file, lines=True)
+# Load the meta data
+meta_df = pd.read_json(meta_file, lines=True)
+# Drop columns
+reviews_df.drop(
+    columns=['images', 'asin', 'user_id', 'rating',
+             'timestamp', 'helpful_vote', 'verified_purchase'
+             ],
+    inplace=True
+)
+meta_df.drop(
+    columns=['main_category', 'images', 
+             'videos', 'store', 'details',
+             'bought_together', 'subtitle', 
+             'author'
+             ],
+    inplace=True
+)
+# Rename columns
+reviews_df.rename(
+    columns={
+        "title": "review_title"
+    },
+    inplace=True
+)
+
+meta_df.rename(
+    columns={
+        "title": "product_title"
+    },
+    inplace=True
+)
+# Convert columns with lists of text to simple strings rather than lists 
+def flatten_to_text(x):
+    if isinstance(x, list):
+        return " ".join(str(item) for item in x if pd.notna(item))
+    if pd.isna(x):
+        return ""
+    return str(x)
+
+for col in ["features", "description", "categories"]:
+    meta_df[col] = meta_df[col].apply(flatten_to_text)
+
+# Check Result to ensure it worked properly
+meta_df[["features", "description", "categories"]].head()
+# Merge the review data and metadata using "parent_asin"
+merged_df = pd.merge(
+    reviews_df, 
+    meta_df, 
+    on='parent_asin', 
+    how='inner'
+)
+
+# Sample rows from the fully merged dataframe 
+scaled_sample = merged_df.sample(n=225000, random_state=42)
+
+# Checking whether the scaled sample has more than 100k products
+scaled_sample.nunique()
+
+# Aggregate reviews at the product level using parent_asin
+scaled_sample = (
+    scaled_sample
+    .groupby("parent_asin", as_index=False)
+    .agg({
+        "review_title": "first",
+        "product_title": "first",
+        "average_rating": "first",
+        "rating_number": "first",
+        "features": "first",
+        "description": "first",
+        "price": "first",
+        "categories": "first",
+        "text": list
+    })
+)
+
+# Combine list of review texts into a single string per product
+scaled_sample["review_text"] = scaled_sample["text"].apply(
+    lambda x: " ".join([str(i) for i in x if isinstance(i, str)])
+)
+
+# Drop raw text and parent_asin 
+scaled_sample = scaled_sample.drop(columns=['text', 'parent_asin'])
+
+# Optimize data types to reduce memory usage and improve processing efficiency
+scaled_sample["rating_number"] = pd.to_numeric(scaled_sample["rating_number"], downcast="integer")
+scaled_sample["average_rating"] = pd.to_numeric(scaled_sample["average_rating"], downcast="float")
+scaled_sample["categories"] = scaled_sample["categories"].astype("category")
+
+# Clean and extract numeric values from price column
+scaled_sample["price"] = (
+    scaled_sample["price"]
+    .replace(["—", "–", "", "N/A", "na", "null"], np.nan)
+    .astype(str)
+    .str.extract(r"(\d+\.?\d*)")[0]
+)
+
+# Save scaled sample dataset as a compressed Parquet file
+output_path = OUT_DIR / "processed_scaled_sample.parquet"
+scaled_sample.to_parquet(output_path, index=False, compression="snappy")
+```
   
 ## Step 3: Improve Documentation and Code Quality
 
