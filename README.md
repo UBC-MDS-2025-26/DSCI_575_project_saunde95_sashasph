@@ -15,7 +15,7 @@ These two approaches allow us to compare traditional keyword-based retrieval wit
 
 In Milestone 2, we extend this system into a full Retrieval-Augmented Generation (RAG) pipeline by integrating a large language model (LLM). This allows the system to generate natural language answers grounded in retrieved Amazon product reviews and metadata. We also introduce a **hybrid retrieval approach**, combining BM25 and semantic search, and update the web application to support both retrieval-only and RAG-based query modes, with options for semantic and hybrid retrieval.
 
-In Milestone 3, we scale our dataset to 100,647 product-level documents (one per product) by re-building our parquet file to be aggregated at the product level. Further, we implement a new and improved LLM model with greater reasoning skills and update our code base to improve overall quality. All changes to code quality and more descriptions of what has changed since Milestone 2 can be found in `results/final_discussion.md`. 
+In Milestone 3, we scale our dataset to 101,268 product-level documents (one per product) by re-building our parquet file to be aggregated at the product level. Further, we implement a new and improved LLM model with greater reasoning skills and update our code base to improve overall quality. All changes to code quality and more descriptions of what has changed since Milestone 2 can be found in `results/final_discussion.md`. 
 
 ---
 
@@ -37,7 +37,7 @@ In Milestone 3, we scale our dataset to 100,647 product-level documents (one per
 
 ### Milestone 3
 - Stronger LLM model with improved reasoning ability
-- Scaled dataset to 100,647 product-level documents (one per unique product) with multiple reviews for richer product-level context and improved retrieval quality. 
+- Scaled dataset to 101,268 product-level documents (one per unique product) with multiple reviews for richer product-level context and improved retrieval quality. 
 - Hybrid retriever weighting adjusted to 50% semantic, 50% BM25 as a quality improvement (evaluated and justified in discussion and exploratory notebook).
 ---
 
@@ -61,7 +61,7 @@ The dataset is sourced from:
 
 ## Data Processing
 
-The raw review and metadata files are merged using `parent_asin`. We then sample from the merged review-level dataset and aggregate to one row per product using `parent_asin`. During this step, all review texts associated with a product are concatenated into a single review_text field, while review_title and product-level metadata fields are retained using the first observed value for each product. This reduces duplicate results during retrieval and allows each document to contain richer product-level information. The code we used to create and save the final parquet file can be found in `milestone2_exploration_step2.ipynb`.
+The raw review and metadata files are merged using `parent_asin`. We then sample from the merged review-level dataset and aggregate to one row per product using `parent_asin`. During this step, all review texts associated with a product are concatenated into a single review_text field, while review_title and product-level metadata fields are retained using the first observed value for each product. This reduces duplicate results during retrieval and allows each document to contain richer product-level information. The code we used to create and save the final parquet file can be found in `milestone3_exploration_step2.ipynb`.
 
 We retain a subset of fields relevant for both retrieval and result display.
 
@@ -100,7 +100,7 @@ Additional preprocessing steps are applied depending on the retrieval method:
 
 ### Data Sampling and Size Considerations
 
-Due to the large size of the fully merged dataset (~14GB), we construct a scaled dataset of 100,647 product-level rows.
+Due to the large size of the fully merged dataset (~14GB), we construct a scaled dataset of 101,268 product-level rows.
 
 This dataset is created by sampling from the merged review-level dataset and then aggregating to the product level. While this approach does not guarantee preservation of all underlying distributions, it is expected to retain a representative mix of products, reviews, and categories without introducing systematic bias.
 
@@ -388,6 +388,58 @@ The app supports:
 
 In RAG mode, users can choose between semantic or hybrid retrieval to generate responses, while Search mode allows comparison of BM25, semantic, and hybrid retrieval without generation.
 
+
+---
+## Usage
+
+### How to Use the App
+
+1. **Select a mode:**
+   - **RAG Mode** → generates a natural language answer using retrieved product data  
+   - **Search Only** → returns ranked product results without generation  
+
+2. **Choose a retrieval method (depends on mode):**
+   - In **Search Only** mode: BM25, Semantic, or Hybrid  
+   - In **RAG Mode**: Semantic or Hybrid  
+
+3. **Enter your query** in the input box
+
+4. Click **Search** to view results
+
+The available retrieval methods update dynamically based on the selected mode.
+
+---
+
+### Usage Examples
+
+#### Example 1: Search Mode (retrieval only)
+
+- Mode: **Search Only**  
+- Method: **Hybrid**  
+- Query:
+
+```
+blue patio chair cushion
+```
+
+**Expected behavior:**  
+Returns a ranked list of relevant products, combining keyword matching (BM25) and semantic similarity.
+
+---
+
+#### Example 2: RAG Mode (generated recommendations)
+
+- Mode: **RAG Mode**  
+- Method: **Hybrid**  
+- Query:
+
+```
+something to make a garden look more colourful and lively!
+```
+
+**Expected behavior:**  
+Returns an AI generated natural language response with product recommendations, using retrieved reviews and metadata, as well as referenced products below.
+
 ---
 
 ## Evaluation
@@ -430,6 +482,8 @@ Results and discussion can be found in:
 - The hybrid RAG pipeline performs well on keyword-based and moderately abstract queries, combining precise matching (BM25) with semantic understanding.  
 - Performance declines on complex multi-constraint queries, where relevant documents are not consistently retrieved.  
 - In these cases, the LLM often filters out weak results rather than returning incorrect recommendations, resulting in fewer but more reasonable outputs.  
+
+---
 
 ### Milestone 3
 
